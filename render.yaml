@@ -14,7 +14,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
-        value: '24'
+        value: '22'
       - key: FRONTEND_URL
         value: https://heartconnect.vercel.app
       - key: USE_MOCK_DB
@@ -22,6 +22,8 @@ services:
       - key: DATABASE_TYPE
         value: postgres
       - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_SSL_CA
         sync: false
       - key: JWT_SECRET
         sync: false

@@ -10,11 +10,11 @@ stages:
   - verify
 
 default:
-  image: node:24-bookworm
+  image: node:22-bookworm
   interruptible: true
   cache:
     key:
-      prefix: node-24
+      prefix: node-22
       files:
         - frontend/package-lock.json
         - backend/package-lock.json

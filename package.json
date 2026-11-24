@@ -2,12 +2,13 @@
   "name": "dating-app",
   "private": true,
   "engines": {
-    "node": "24.x"
+    "node": ">=20.0.0"
   },
   "scripts": {
     "build": "npm run build --prefix frontend",
     "smoke:deployment": "node scripts/smoke-deployment.cjs",
-    "ci": "node scripts/prepare-ci.cjs && npm run typecheck --prefix frontend && npm run build --prefix backend && npm test --prefix backend && npm run build"
+    "lint": "npm run lint --prefix frontend",
+    "ci": "node scripts/prepare-ci.cjs && npm run lint && npm run typecheck --prefix frontend && npm run build --prefix backend && npm test --prefix backend && npm run build"
   },
   "dependencies": {
     "axios": "^1.21.1",
