@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
+import { useAdmin } from '../../components/admin/AdminContext';
 import { useAdminList } from '../../hooks/useAdminData';
 import { AdminPost, adminService } from '../../services/adminService';
 import { AdminDialog, AdminEmpty, AdminError, AdminHeader, AdminLoading, AdminPagination, AdminPersona, AdminSearch, AdminSelect, RefreshButton, date, number, useAdminAction } from '../../components/admin/AdminUI';
 
 export default function AdminFeedView() {
   const list = useAdminList<AdminPost>('/admin/feed');
+  const { refreshOverview } = useAdmin();
   const [selected, setSelected] = useState<AdminPost | null>(null);
+  const active = selected ? list.data?.items.find(item => item.id === selected.id) || selected : null;
   const action = useAdminAction(() => { list.refresh(); setSelected(null); });
   const changeVisibility = (post: AdminPost) => action.ask({
     title: post.isHidden ? 'Khôi phục bài viết?' : 'Ẩn bài viết khỏi cộng đồng?',
@@ -14,7 +17,7 @@ export default function AdminFeedView() {
     action: () => adminService.visibility(post.id, !post.isHidden), success: post.isHidden ? 'Đã khôi phục bài viết.' : 'Đã ẩn bài viết khỏi bảng tin.',
   });
   return <>
-    <AdminHeader title="Quản lý bài viết" description="Giữ nội dung cộng đồng tích cực. Kiểm tra, ẩn hoặc khôi phục bài viết."><RefreshButton onClick={list.refresh} busy={list.loading} /></AdminHeader>
+    <AdminHeader title="Quản lý bài viết" description="Giữ nội dung cộng đồng tích cực. Kiểm tra, ẩn hoặc khôi phục bài viết."><RefreshButton onClick={() => { list.refresh(); refreshOverview(true); }} busy={list.loading} /></AdminHeader>
     {list.error && <AdminError message={list.error} retry={list.refresh} />}
     <section className="admin-panel">
       <div className="admin-toolbar"><AdminSearch value={list.query} onChange={list.setQuery} placeholder="Tìm nội dung hoặc username tác giả…" />
@@ -28,9 +31,9 @@ export default function AdminFeedView() {
       </tr>)}</tbody></table></div> : <AdminEmpty title="Không tìm thấy bài viết" description="Thử từ khóa khác hoặc thay đổi trạng thái hiển thị." icon="collection" />}
       <AdminPagination data={list.data} onChange={list.setFilter} busy={list.loading} />
     </section>
-    {selected && <AdminDialog title="Chi tiết bài viết" onClose={() => setSelected(null)} wide busy={action.busy} footer={<><button className="admin-button secondary" onClick={() => setSelected(null)} disabled={action.busy}>Đóng</button><button className={'admin-button ' + (selected.isHidden ? 'primary' : 'danger')} disabled={action.busy} onClick={() => changeVisibility(selected)}>{selected.isHidden ? 'Khôi phục bài viết' : 'Ẩn bài viết'}</button></>}>
-      <AdminPersona user={selected.User} /><p className="admin-note mt-2">{date(selected.createdAt, true)}</p><p className="admin-post-content">{selected.content}</p>
-      {selected.mediaUrls?.length > 0 && <div className="admin-media-grid">{selected.mediaUrls.map((source, index) => <img key={index} src={source} alt={'Ảnh đính kèm ' + (index + 1)} loading="lazy" />)}</div>}
+    {active && <AdminDialog title="Chi tiết bài viết" onClose={() => setSelected(null)} wide busy={action.busy} footer={<><button className="admin-button secondary" onClick={() => setSelected(null)} disabled={action.busy}>Đóng</button><button className={'admin-button ' + (active.isHidden ? 'primary' : 'danger')} disabled={action.busy} onClick={() => changeVisibility(active)}>{active.isHidden ? 'Khôi phục bài viết' : 'Ẩn bài viết'}</button></>}>
+      <AdminPersona user={active.User} /><p className="admin-note mt-2">{date(active.createdAt, true)}</p><p className="admin-post-content">{active.content}</p>
+      {active.mediaUrls?.length > 0 && <div className="admin-media-grid">{active.mediaUrls.map((source, index) => <img key={index} src={source} alt={'Ảnh đính kèm ' + (index + 1)} loading="lazy" />)}</div>}
     </AdminDialog>}
     {action.dialog}
   </>;

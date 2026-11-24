@@ -1,5 +1,5 @@
 ﻿import { User } from '../models';
-import apiClient from './apiClient';
+import apiClient, { getApiErrorMessage } from './apiClient';
 import type { UserProfileUpdate } from '../models';
 
 import { mapUser } from '../utils/helpers';
@@ -9,7 +9,7 @@ export const login = async (email: string, password: string): Promise<User> => {
     const res = await apiClient.post('/auth/login', { email, password });
             return mapUser(res.data.user);
   } catch (err: any) {
-    throw new Error(err.response?.data?.error || err.message || 'Login failed', { cause: err });
+    throw new Error(getApiErrorMessage(err, 'Login failed'), { cause: err });
   }
 };
 
@@ -18,7 +18,7 @@ export const register = async (data: any): Promise<User> => {
     const res = await apiClient.post('/auth/register', data);
             return mapUser(res.data.user);
   } catch (err: any) {
-    throw new Error(err.response?.data?.error || err.message || 'Registration failed', { cause: err });
+    throw new Error(getApiErrorMessage(err, 'Registration failed'), { cause: err });
   }
 };
 
@@ -61,7 +61,7 @@ export const updateUserInList = async (id: string, changes: UserProfileUpdate): 
 
 async function recoveryRequest(path: string, body: Record<string, string>) {
   try { await apiClient.post('/auth/' + path, body); }
-  catch (error: any) { throw new Error(error.response?.data?.error || 'Password recovery is unavailable.', { cause: error }); }
+  catch (error: any) { throw new Error(getApiErrorMessage(error, 'Password recovery is unavailable.'), { cause: error }); }
 }
 export const forgotPassword = (email: string) => recoveryRequest('forgot-password', { email });
 export const verifyOTP = (email: string, otp: string) => recoveryRequest('verify-otp', { email, otp });

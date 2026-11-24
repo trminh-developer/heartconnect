@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { useAdmin } from '../components/admin/AdminContext';
 import { useAdminData, useAdminList } from '../hooks/useAdminData';
 import { AdminVerification, adminService } from '../services/adminService';
 import { AdminBadge, AdminDialog, AdminEmpty, AdminError, AdminHeader, AdminLoading, AdminPagination, AdminPersona, AdminSearch, AdminSelect, RefreshButton, date, number, useAdminAction } from '../components/admin/AdminUI';
 
 export default function AdminVerificationsView() {
   const list = useAdminList<AdminVerification>('/admin/verifications', { status: 'PENDING' });
+  const { refreshOverview } = useAdmin();
   const [selected, setSelected] = useState<string | null>(null);
   const [zoom, setZoom] = useState<{ source: string; label: string } | null>(null);
   const detail = useAdminData<AdminVerification>(selected ? '/admin/verifications/' + selected : null);
@@ -16,7 +18,7 @@ export default function AdminVerificationsView() {
       label: approve ? 'Phê duyệt xác thực' : 'Từ chối yêu cầu', danger: !approve, action: () => adminService.review(request.id, approve), success: approve ? 'Đã phê duyệt xác thực danh tính.' : 'Đã từ chối yêu cầu xác thực.' });
   };
   return <>
-    <AdminHeader title="Xác thực danh tính" description="Đối chiếu giấy tờ và hình ảnh để xây dựng một cộng đồng đáng tin cậy."><RefreshButton onClick={list.refresh} busy={list.loading} /></AdminHeader>
+    <AdminHeader title="Xác thực danh tính" description="Đối chiếu giấy tờ và hình ảnh để xây dựng một cộng đồng đáng tin cậy."><RefreshButton onClick={() => { list.refresh(); detail.refresh(); refreshOverview(true); }} busy={list.loading} /></AdminHeader>
     {list.error && <AdminError message={list.error} retry={list.refresh} />}
     <section className="admin-panel"><div className="admin-toolbar"><AdminSearch value={list.query} onChange={list.setQuery} placeholder="Tìm tên, username hoặc email…" /><AdminSelect label="Trạng thái xác thực" value={list.filter('status')} onChange={value => list.setFilter('status', value)} options={[['PENDING', 'Đang chờ duyệt'], ['ALL', 'Tất cả yêu cầu'], ['APPROVED', 'Đã phê duyệt'], ['REJECTED', 'Đã từ chối']]} /><button className="admin-text-button" onClick={list.clear}>Đặt lại bộ lọc</button></div>
       <div className="admin-result-count"><span>{number(list.data?.total)} yêu cầu xác thực</span><span>Ảnh đối chiếu được mở trong từng hồ sơ.</span></div>

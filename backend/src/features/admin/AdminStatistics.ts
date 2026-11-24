@@ -12,9 +12,14 @@ const fail = (res: Response, error: any) => {
   return res.status(error.statusCode || 500).json({ error: error.statusCode ? error.message : 'Không thể tải thống kê.' });
 };
 
+export function vietnamDayExpression(field: string, dialect = sequelize.getDialect()) {
+  if (dialect === 'sqlite') return fn('DATE', col(field), '+7 hours');
+  if (dialect === 'postgres') return fn('TO_CHAR', fn('TIMEZONE', 'Asia/Ho_Chi_Minh', col(field)), 'YYYY-MM-DD');
+  return fn('DATE', fn('CONVERT_TZ', col(field), '+00:00', '+07:00'));
+}
+
 async function daily(model: any, field: string, where: any, amount = false) {
-  const day = sequelize.getDialect() === 'sqlite' ? fn('DATE', col(field), '+7 hours') :
-    fn('DATE', fn('CONVERT_TZ', col(field), '+00:00', '+07:00'));
+  const day = vietnamDayExpression(field);
   return model.findAll({
     attributes: [[day, 'date'], [amount ? fn('SUM', col('amount')) : fn('COUNT', col('id')), 'value']],
     where, group: [day], order: [[day, 'ASC']], raw: true,
@@ -23,7 +28,7 @@ async function daily(model: any, field: string, where: any, amount = false) {
 function series(range: ReturnType<typeof period>, ...groups: { date: string; value: number | string }[][]) {
   return Array.from({ length: range.days }, (_, i) => {
     const date = new Date(range.from.getTime() + REPORT_TIME_OFFSET_MS + i * 86400000).toISOString().slice(0, 10);
-    return { date, values: groups.map(group => Number(group.find(point => point.date === date)?.value || 0)) };
+    return { date, values: groups.map(group => Number(group.find(point => String(point.date).slice(0, 10) === date)?.value || 0)) };
   });
 }
 

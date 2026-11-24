@@ -1,5 +1,6 @@
 import { Request } from 'express';
 import { col, fn, Op, where } from 'sequelize';
+import sequelize from '../../config/db';
 
 export const adminError = (message: string, statusCode = 400) => Object.assign(new Error(message), { statusCode });
 export function pagination(req: Request) {
@@ -20,9 +21,14 @@ export function search(req: Request) {
   if (typeof req.query.q !== 'string' || req.query.q.length > 150) throw adminError('Từ khóa tìm kiếm không hợp lệ.');
   return req.query.q.trim();
 }
-export const searchWhere = (q: string, columns: string[]) => q ? {
-  [Op.or]: columns.map(column => where(fn('INSTR', fn('LOWER', col(column.replace(/^\$|\$$/g, ''))), q.toLocaleLowerCase('vi')), { [Op.gt]: 0 })),
-} : {};
+export const searchWhere = (q: string, columns: string[], dialect = sequelize.getDialect()) => {
+  if (!q) return {};
+  const needle = q.toLocaleLowerCase('vi');
+  const matchFn = dialect === 'postgres' ? 'STRPOS' : 'INSTR';
+  return {
+    [Op.or]: columns.map(column => where(fn(matchFn, fn('LOWER', col(column.replace(/^\$|\$$/g, ''))), needle), { [Op.gt]: 0 })),
+  };
+};
 export function pageResult(items: unknown[], total: number, paging: ReturnType<typeof pagination>) {
   return { items, total, page: paging.page, pageSize: paging.pageSize, totalPages: Math.max(1, Math.ceil(total / paging.pageSize)) };
 }

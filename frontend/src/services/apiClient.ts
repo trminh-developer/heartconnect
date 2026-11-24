@@ -115,4 +115,18 @@ apiClient.interceptors.response.use(
   },
 );
 
+export const getApiErrorMessage = (error: unknown, fallback: string): string => {
+  const failure = error as { response?: { data?: { error?: unknown; message?: unknown } }; message?: unknown };
+  const apiError = failure?.response?.data?.error;
+  if (typeof apiError === "string" && apiError.trim()) return apiError;
+  if (apiError && typeof apiError === "object" && "message" in apiError && typeof (apiError as { message?: unknown }).message === "string") {
+    return (apiError as { message: string }).message;
+  }
+  if (typeof failure?.response?.data?.message === "string" && failure.response.data.message.trim()) {
+    return failure.response.data.message;
+  }
+  if (typeof failure?.message === "string" && failure.message.trim()) return failure.message;
+  return fallback;
+};
+
 export default apiClient;

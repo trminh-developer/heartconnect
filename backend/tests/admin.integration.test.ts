@@ -167,3 +167,21 @@ test('admin can delete a user and all related data', async () => {
   assert.equal(await models.Status.count({ where: { user_id: victim.id } }), 0);
   assert.equal(await models.Notification.count({ where: { user_id: victim.id } }), 0);
 });
+
+test('admin search and daily statistics expressions adapt to sqlite, postgres and mysql dialects', async () => {
+  const { searchWhere } = await import('../src/features/admin/adminQuery');
+  const { vietnamDayExpression } = await import('../src/features/admin/AdminStatistics');
+  const pgSearch: any = searchWhere('Minh', ['$user.username$'], 'postgres');
+  const pgFn = pgSearch[Object.getOwnPropertySymbols(pgSearch)[0]][0].attribute;
+  assert.equal(pgFn.fn, 'STRPOS');
+  const sqliteSearch: any = searchWhere('Minh', ['$user.username$'], 'sqlite');
+  const sqliteFn = sqliteSearch[Object.getOwnPropertySymbols(sqliteSearch)[0]][0].attribute;
+  assert.equal(sqliteFn.fn, 'INSTR');
+
+  const pgDay: any = vietnamDayExpression('createdAt', 'postgres');
+  assert.equal(pgDay.fn, 'TO_CHAR');
+  assert.equal(pgDay.args[0].fn, 'TIMEZONE');
+  assert.equal(pgDay.args[0].args[0], 'Asia/Ho_Chi_Minh');
+  assert.equal((vietnamDayExpression('createdAt', 'sqlite') as any).fn, 'DATE');
+  assert.equal((vietnamDayExpression('createdAt', 'mysql') as any).args[0].fn, 'CONVERT_TZ');
+});

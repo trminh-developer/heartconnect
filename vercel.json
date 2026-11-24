@@ -7,7 +7,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://heartconnect-api.vercel.app/api/:path*"
+      "destination": "https://heartconnect-qa29.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",
