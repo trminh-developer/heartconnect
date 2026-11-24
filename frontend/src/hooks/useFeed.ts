@@ -133,6 +133,28 @@ export const useFeed = (userId?: string) => {
     return null;
   };
 
+  const updateStatus = async (statusId: string, content: string) => {
+    try {
+      await feedService.updateStatus(statusId, content);
+      setStatuses(prev => prev.map(s => (s.id === statusId ? { ...s, content } : s)));
+      showAlert('Cập nhật bài viết thành công!', 'success');
+    } catch (error: any) {
+      showAlert(error.response?.data?.error || 'Không thể cập nhật bài viết.', 'error');
+      throw error;
+    }
+  };
+
+  const deleteStatus = async (statusId: string) => {
+    try {
+      await feedService.deleteStatus(statusId);
+      setStatuses(prev => prev.filter(s => s.id !== statusId));
+      showAlert('Đã xóa bài viết thành công!', 'success');
+    } catch (error: any) {
+      showAlert(error.response?.data?.error || 'Không thể xóa bài viết.', 'error');
+      throw error;
+    }
+  };
+
   return {
     statuses,
     isLoading,
@@ -141,6 +163,8 @@ export const useFeed = (userId?: string) => {
     createStatus,
     toggleLike,
     getComments,
-    addComment
+    addComment,
+    updateStatus,
+    deleteStatus,
   };
 };

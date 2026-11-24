@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Status, StatusLike, StatusComment, User } from "../../models";
+import { Status, StatusLike, StatusComment, User, Report } from "../../models";
 import { AuthRequest } from "../../middlewares/authMiddleware";
 import { z } from 'zod';
 
@@ -19,8 +19,8 @@ const isBase64Image = (str: string) => {
 export const getStatuses = async (req: AuthRequest, res: Response) => {
   try {
     const { userId } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const page = z.string().regex(/^[1-9]\d*$/).transform(Number).pipe(z.number().int().min(1).max(100000)).default(1).parse(req.query.page);
+    const limit = z.string().regex(/^[1-9]\d*$/).transform(Number).pipe(z.number().int().min(1).max(100)).default(20).parse(req.query.limit);
     const offset = (page - 1) * limit;
 
     let whereClause: any = { is_hidden: false };
@@ -93,8 +93,8 @@ export const getStatuses = async (req: AuthRequest, res: Response) => {
     // For now, return array directly to avoid breaking useFeed.ts
     return res.json(results);
   } catch (err: any) {
-    console.error("Error in getStatuses:", err);
-    return res.status(500).json({ error: "Internal server error" });
+    if (!(err instanceof z.ZodError)) console.error("Error in getStatuses:", err);
+    return feedError(res, err);
   }
 };
 
@@ -209,6 +209,9 @@ export const addComment = async (req: AuthRequest, res: Response) => {
 export const getComments = async (req: Request, res: Response) => {
   try {
     const { statusId } = req.params;
+    if (!await Status.findOne({ where: { id: statusId, is_hidden: false } })) {
+      return res.status(404).json({ error: 'Status not found' });
+    }
     const comments = await StatusComment.findAll({
       where: { status_id: statusId },
       include: [
@@ -225,6 +228,82 @@ export const getComments = async (req: Request, res: Response) => {
   }
 };
 
+export const updateStatus = async (req: AuthRequest, res: Response) => {
+  try {
+    const { statusId } = req.params;
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+    const { content, mediaUrls } = z.object({
+      content: z.string().trim().max(5000).default(''),
+      mediaUrls: z.array(z.string().refine(isBase64Image, 'Only image uploads are allowed')).max(10).optional(),
+    }).refine(body => !!body.content || (body.mediaUrls && body.mediaUrls.length > 0), 'Nội dung bài viết không được để trống.').parse(req.body);
+
+    const status: any = await Status.findByPk(statusId as string);
+    if (!status) return res.status(404).json({ error: "Status not found" });
+
+    // IDOR Check: Only the owner or admin can update
+    if (status.user_id !== userId && req.user?.role !== "ADMIN") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    status.content = content;
+    if (mediaUrls !== undefined) {
+      status.media_urls = mediaUrls;
+    }
+    await status.save();
+
+    return res.json({
+      success: true,
+      status: {
+        id: status.id,
+        userId: status.user_id,
+        content: status.content,
+        mediaUrls: status.media_urls || [],
+        createdAt: status.created_at,
+        updatedAt: status.updated_at,
+      },
+    });
+  } catch (err: any) {
+    if (!(err instanceof z.ZodError)) console.error("Error in updateStatus:", err);
+    return feedError(res, err);
+  }
+};
+
+export const reportStatus = async (req: AuthRequest, res: Response) => {
+  try {
+    const { statusId } = req.params;
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+    const body = z.object({
+      reason: z.string().trim().min(1, 'Vui lòng chọn lý do báo cáo.').max(255),
+      details: z.string().trim().max(5000).optional(),
+    }).parse(req.body);
+
+    const status: any = await Status.findByPk(statusId as string);
+    if (!status) return res.status(404).json({ error: "Status not found" });
+
+    if (status.user_id === userId) {
+      return res.status(400).json({ error: "Không thể tự báo cáo bài viết của chính bạn." });
+    }
+
+    const report = await Report.create({
+      reporter_id: userId,
+      reported_user_id: status.user_id,
+      reported_status_id: statusId,
+      reason: body.reason,
+      description: body.details || "",
+      status: "PENDING",
+    });
+
+    return res.json({ success: true, report: { id: report.get("id"), status: report.get("status") } });
+  } catch (err: any) {
+    if (!(err instanceof z.ZodError)) console.error("Error in reportStatus:", err);
+    return feedError(res, err);
+  }
+};
+
 export const deleteStatus = async (req: AuthRequest, res: Response) => {
   try {
     const { statusId } = req.params;
@@ -238,6 +317,8 @@ export const deleteStatus = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: "Forbidden" });
     }
 
+    await StatusLike.destroy({ where: { status_id: statusId } });
+    await StatusComment.destroy({ where: { status_id: statusId } });
     await status.destroy();
     return res.json({ success: true });
   } catch (err) {

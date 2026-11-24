@@ -27,3 +27,18 @@ export const addComment = async (statusId: string, userId: string, content: stri
   const res = await apiClient.post('/feed/comment', { statusId, userId, content });
   return res.data;
 };
+
+export const updateStatus = async (statusId: string, content: string, mediaUrls?: string[]) => {
+  const res = await apiClient.put(`/feed/${statusId}`, { content, mediaUrls });
+  return res.data;
+};
+
+export const deleteStatus = async (statusId: string) => {
+  const res = await apiClient.delete(`/feed/${statusId}`);
+  return res.data;
+};
+
+export const reportStatus = async (statusId: string, reason: string, details?: string) => {
+  const res = await apiClient.post(`/feed/${statusId}/report`, { reason, details });
+  return res.data;
+};

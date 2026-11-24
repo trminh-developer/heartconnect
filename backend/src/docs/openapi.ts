@@ -84,17 +84,18 @@ operation('post', '/auth/login', 'Đăng nhập', {
   tag: 'Auth', auth: 'public', body: ref('Login'), result: ref('AuthTokens'), errors: [400, 401, 403, 429],
   description: 'Đăng nhập bằng tài khoản hiện có trong hệ thống. Mẫu local dùng tài khoản ADMIN từ dữ liệu seed. Cookie được gửi tự động cho các lần gọi tiếp theo trên trang này. Có thể sao chép accessToken vào nút Authorize (chỉ nhập token).',
 });
-operation('post', '/auth/register', 'Đăng ký tài khoản', { tag: 'Auth', auth: 'public', body: ref('Registration'), result: ref('AuthTokens'), status: 201, errors: [429] });
+operation('post', '/auth/register', 'Đăng ký tài khoản', { tag: 'Auth', auth: 'public', body: ref('Registration'), result: ref('AuthTokens'), status: 201, errors: [409, 429] });
 operation('post', '/auth/refresh', 'Làm mới token', {
   tag: 'Auth', auth: 'public', body: object({ token: string() }), result: ref('Tokens'), errors: [401, 403, 429],
-  description: 'Truyền refresh token trong body hoặc dùng cookie refreshToken sau khi đăng nhập.',
+  description: 'Truyền refresh token trong body hoặc dùng cookie refreshToken sau khi đăng nhập. Token được lưu dạng băm trong database, chỉ dùng được một lần và được thay mới sau mỗi lần refresh. Đăng xuất hoặc đổi mật khẩu sẽ thu hồi phiên tương ứng.',
 });
 operation('post', '/auth/logout', 'Đăng xuất', { tag: 'Auth', auth: 'public', body: object({ token: string() }), errors: [429] });
 operation('get', '/auth/me', 'Thông tin tài khoản đang đăng nhập', { tag: 'Auth', result: ref('Profile'), errors: [404, 429] });
 for (const [path, summary] of [['forgot-password', 'Yêu cầu khôi phục mật khẩu'], ['verify-otp', 'Kiểm tra OTP'], ['reset-password', 'Đặt lại mật khẩu']]) {
   operation('post', '/auth/' + path, summary, {
     tag: 'Auth', auth: 'public', deprecated: true,
-    description: 'Endpoint hiện là stub: luôn trả { success: true }, chưa gửi email, kiểm tra OTP hoặc đổi mật khẩu. Không dùng phản hồi này để xác nhận chức năng đã hoạt động.',
+    description: 'Khôi phục mật khẩu chưa được cấu hình. Endpoint trả HTTP 501 với thông báo lỗi; không gửi email, kiểm tra OTP hoặc đổi mật khẩu.',
+    status: 501, result: ref('Error'),
     body: object({ email: { ...string('api.tester@example.test'), format: 'email' }, ...(path === 'forgot-password' ? {} : { otp: string('123456') }), ...(path === 'reset-password' ? { password: string('LocalDemo123!') } : {}) }), errors: [429],
   });
 }
@@ -150,7 +151,7 @@ for (const method of ['put', 'post']) operation(method, '/messages/{messageId}/r
 for (const path of ['/messages/{id}', '/messages/{messageId}/for-me']) operation('delete', path, 'Xóa tin nhắn ở phía mình', { tag: 'Messages', errors: [404], description: 'ID là ID tin nhắn cần xóa.' });
 
 operation('get', '/feed/{id}', 'Bảng tin hoặc bài viết của một người', {
-  tag: 'Feed', auth: 'optional', parameters: [query('page', { ...integer(1), default: 1 }), query('limit', { ...integer(1), default: 20 })], result: array(ref('Post')),
+  tag: 'Feed', auth: 'optional', parameters: [query('page', { ...integer(1, 100000), default: 1 }), query('limit', { ...integer(1, 100), default: 20 })], result: array(ref('Post')), errors: [400],
   description: 'ID là ID người dùng; đặt id = all để xem bảng tin chung.',
 });
 operation('post', '/feed', 'Đăng bài viết', {
@@ -158,18 +159,38 @@ operation('post', '/feed', 'Đăng bài viết', {
   result: object({ success: boolean, status: ref('Post') }),
 });
 operation('post', '/feed/like', 'Thích hoặc bỏ thích bài viết', { tag: 'Feed', body: object({ statusId: string(), isLiked: { ...boolean, example: true } }, ['statusId', 'isLiked']), errors: [404] });
-operation('get', '/feed/{statusId}/comments', 'Danh sách bình luận', { tag: 'Feed', result: array(ref('Comment')) });
+operation('get', '/feed/{statusId}/comments', 'Danh sách bình luận', { tag: 'Feed', result: array(ref('Comment')), errors: [404] });
 operation('post', '/feed/comment', 'Bình luận bài viết', {
   tag: 'Feed', body: object({ statusId: string(), content: { ...string('Bình luận thử'), minLength: 1, maxLength: 5000 } }, ['statusId', 'content']), result: ref('Comment'), errors: [404],
 });
 operation('delete', '/feed/{id}', 'Xóa bài viết', { tag: 'Feed', errors: [404], description: 'ID là ID bài viết cần xóa.' });
+operation('put', '/feed/{id}', 'Chỉnh sửa bài viết', {
+  tag: 'Feed', body: object({ content: { ...string('Nội dung bài viết đã chỉnh sửa'), maxLength: 5000 }, mediaUrls: { ...array(string()), maxItems: 10 } }),
+  result: object({ success: boolean, status: ref('Post') }), errors: [403, 404],
+});
+operation('post', '/feed/{id}/report', 'Báo cáo bài viết', {
+  tag: 'Feed', body: object({ reason: string('Nội dung không phù hợp'), details: string() }, ['reason']),
+  result: object({ success: boolean, report: object({ id: string(), status: string() }) }), errors: [400, 404],
+});
+
+operation('get', '/stories', 'Tin còn hiệu lực trong 24 giờ', {
+  tag: 'Stories', result: array(ref('Story')),
+  description: 'Trả tối đa 100 tin của tài khoản đang hoạt động, loại tin hết hạn và tài khoản đã chặn hai chiều.',
+});
+operation('post', '/stories', 'Đăng tin trong 24 giờ', {
+  tag: 'Stories', status: 201, result: ref('Story'),
+  body: object({ mediaType: enumeration('text', 'image', 'video'), textContent: { ...string('Tin mới của tôi'), maxLength: 1000 },
+    backgroundColor: { ...string('#ff6b6b'), pattern: '^#[0-9a-fA-F]{6}$' }, mediaUrl: string() }, ['mediaType']),
+  description: 'Tin văn bản cần textContent. Ảnh cần mediaUrl dạng data:image/png|jpeg|jpg|webp|gif;base64,... tối đa 14 triệu ký tự. Video dùng data:video/mp4|webm|quicktime;base64,... tối đa 40 triệu ký tự. Backend lấy tác giả từ phiên đăng nhập và tự đặt thời điểm hết hạn.',
+});
+operation('delete', '/stories/{id}', 'Xóa tin (tác giả hoặc ADMIN)', { tag: 'Stories', errors: [404] });
 
 operation('get', '/notifications/{userId}', 'Danh sách thông báo', { tag: 'Notifications', result: array(ref('Notification')) });
 operation('get', '/notifications/unread-count/{userId}', 'Số thông báo chưa đọc', { tag: 'Notifications', result: object({ count: integer() }) });
 operation('put', '/notifications/{id}/read', 'Đánh dấu thông báo đã đọc', { tag: 'Notifications', errors: [404] });
 operation('put', '/notifications/mark-all-read/{userId}', 'Đánh dấu tất cả thông báo đã đọc', { tag: 'Notifications' });
 operation('post', '/notifications', 'Tạo thông báo (ADMIN)', {
-  tag: 'Notifications', body: object({ userId: string(), fromUserId: string(), type: string('SYSTEM'), message: string('Thông báo thử') }, ['userId', 'type', 'message']), result: ref('Notification'),
+  tag: 'Notifications', body: object({ userId: string(), fromUserId: string(), type: enumeration('LIKE', 'MATCH', 'MESSAGE', 'PROFILE_VIEW', 'SUPER_LIKE', 'SYSTEM'), message: { ...string('Thông báo thử'), minLength: 1, maxLength: 5000 } }, ['userId', 'type', 'message']), result: ref('Notification'), errors: [404],
 });
 
 operation('get', '/payments/methods', 'Phương thức thanh toán và giá gói', { tag: 'Payments', auth: 'public', result: ref('PaymentMethods') });
@@ -248,7 +269,7 @@ export const openApiDocument = {
   tags: [
     ['Auth', 'Tài khoản và phiên đăng nhập'], ['Users', 'Hồ sơ và xác thực danh tính'],
     ['Discover', 'Khám phá và ghi nhận lượt hiển thị'], ['Matches', 'Thích, bỏ qua và tương hợp'], ['Messages', 'Hội thoại và tin nhắn'],
-    ['Feed', 'Bài viết và bình luận'], ['Notifications', 'Thông báo'], ['Payments', 'Thanh toán Premium và callback'], ['Admin', 'Quản trị và kiểm duyệt'],
+    ['Feed', 'Bài viết và bình luận'], ['Stories', 'Tin văn bản, ảnh và video trong 24 giờ'], ['Notifications', 'Thông báo'], ['Payments', 'Thanh toán Premium và callback'], ['Admin', 'Quản trị và kiểm duyệt'],
   ].map(([name, description]) => ({ name, description })),
   paths,
   components: {
@@ -281,7 +302,8 @@ export const openApiDocument = {
       SwipeResult: object({ matched: boolean, match: ref('Match'), replayed: boolean }),
       DiscoveryFeed: object({ users: profileList, session_id: string(), next_cursor: { type: 'string', nullable: true }, algorithm_version: string(), expires_at: dateTime, location_required: boolean }),
       Conversation: object({ id: string(), participants: profileList, unreadCount: integer(), lastMessage: { type: 'object', nullable: true }, updatedAt: dateTime }),
-      Message: object({ id: string(), conversation_id: string(), sender_id: string(), content: string(), type: enumeration('text', 'image', 'emoji', 'location'), is_read: boolean, is_recalled: boolean, created_at: dateTime }),
+      Message: object({ id: string(), conversation_id: string(), sender_id: string(), content: string(), type: enumeration('text', 'image', 'emoji', 'location'), status: enumeration('sent', 'delivered', 'seen'), is_recalled: boolean, created_at: dateTime }),
+      Story: object({ id: string(), userId: string(), mediaType: enumeration('text', 'image', 'video'), mediaUrl: { type: 'string', nullable: true }, textContent: { type: 'string', nullable: true }, backgroundColor: { type: 'string', nullable: true }, user: ref('Profile'), createdAt: dateTime, expiresAt: dateTime }),
       Post: object({ id: string(), userId: string(), user: ref('Profile'), content: string(), mediaUrls: array(string()), likesCount: integer(), commentsCount: integer(), hasLiked: boolean, createdAt: dateTime }),
       Comment: object({ id: string(), status_id: string(), user_id: string(), content: string(), created_at: dateTime }),
       Notification: object({ id: string(), user_id: string(), from_user_id: { type: 'string', nullable: true }, type: string(), message: string(), is_read: boolean, fromUser: { type: 'object', nullable: true }, created_at: dateTime }),
