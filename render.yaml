@@ -4,7 +4,7 @@ services:
     name: heartconnect-qa29
     runtime: node
     plan: free
-    repo: https://github.com/trminh-developer/ems.git
+    repo: https://github.com/trminh-developer/heartconnect.git
     branch: main
     autoDeployTrigger: commit
     buildCommand: npm ci --include=dev --prefix frontend && npm ci --include=dev --prefix backend && npm run ci
