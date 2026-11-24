@@ -17,6 +17,7 @@ import {
   resetUserViolations,
   getVerificationDetail,
   setPostVisibility,
+  deleteUser,
 } from "./AdminController";
 import { getAdminAnalytics, getAdminOverview } from './AdminStatistics';
 import { requireAuth, requireAdmin } from "../../middlewares/authMiddleware";
@@ -71,6 +72,12 @@ router.put(
   requireAuth,
   requireAdmin,
   resetUserViolations,
+);
+router.delete(
+  "/api/admin/users/:id",
+  requireAuth,
+  requireAdmin,
+  deleteUser,
 );
 
 router.get("/api/admin/feed", requireAuth, requireAdmin, getAllStatuses);

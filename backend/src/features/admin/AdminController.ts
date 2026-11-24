@@ -1,7 +1,31 @@
 import { Response } from 'express';
 import { Op } from 'sequelize';
 import { z } from 'zod';
-import { Notification, Report, Status, SystemSetting, User, VerificationRequest } from '../../models';
+import {
+  Notification,
+  Report,
+  Status,
+  SystemSetting,
+  User,
+  VerificationRequest,
+  RefreshSession,
+  UserPreference,
+  UserInterest,
+  UserSwipe,
+  UserBlock,
+  DatingEvent,
+  PairState,
+  DatingRequest,
+  DiscoverySession,
+  DiscoveryImpression,
+  Story,
+  StatusLike,
+  StatusComment,
+  Match,
+  Conversation,
+  Message,
+  Transaction,
+} from '../../models';
 import { AuthRequest } from '../../middlewares/authMiddleware';
 import { datingTransaction as adminTransaction } from '../match/transactions';
 import { adminError, filter, pagination, pageResult, search, searchWhere } from './adminQuery';
@@ -122,6 +146,88 @@ export const resetUserViolations = changeUser(async (req, user, transaction) => 
   if (!user.violation_count) return;
   await user.update({ violation_count: 0 }, { transaction });
   await Notification.create({ type: 'SYSTEM', user_id: user.id, message: 'Số lần vi phạm của bạn đã được đặt lại về 0.', is_read: false }, { transaction });
+});
+
+export const deleteUser = handler(async (req, res) => {
+  administrator(req);
+  const id = req.params.id as string;
+
+  await adminTransaction(async transaction => {
+    const user = await User.findByPk(id, { transaction, lock: transaction.LOCK.UPDATE });
+    if (!user) throw adminError('Người dùng không tồn tại.', 404);
+    if (user.get('id') === req.user.id) throw adminError('Bạn không thể tự xóa tài khoản của chính mình.', 403);
+    if (user.get('email') === 'admin@heartconnect.com') throw adminError('Không thể xóa tài khoản Quản trị viên hệ thống.', 403);
+
+    // 1. Delete RefreshSessions & VerificationRequests
+    await RefreshSession.destroy({ where: { user_id: id }, transaction });
+    await VerificationRequest.destroy({ where: { user_id: id }, transaction });
+
+    // 2. Delete User Preferences & Interests
+    await UserPreference.destroy({ where: { user_id: id }, transaction });
+    await UserInterest.destroy({ where: { user_id: id }, transaction });
+
+    // 3. Delete Swipes, Blocks, Dating Events, Pair States, Discovery Sessions & Impressions
+    await UserSwipe.destroy({ where: { [Op.or]: [{ user_id: id }, { target_id: id }] }, transaction });
+    await UserBlock.destroy({ where: { [Op.or]: [{ user_id: id }, { target_id: id }] }, transaction });
+    await DatingEvent.destroy({ where: { [Op.or]: [{ user_id: id }, { target_id: id }] }, transaction });
+    await PairState.destroy({ where: { [Op.or]: [{ user_low_id: id }, { user_high_id: id }] }, transaction });
+    await DatingRequest.destroy({ where: { user_id: id }, transaction });
+    await DiscoveryImpression.destroy({ where: { [Op.or]: [{ user_id: id }, { target_id: id }] }, transaction });
+    await DiscoverySession.destroy({ where: { user_id: id }, transaction });
+
+    // 4. Delete Stories
+    await Story.destroy({ where: { user_id: id }, transaction });
+
+    // 5. Delete Statuses and their Likes / Comments / Reports
+    const userStatuses = await Status.findAll({ where: { user_id: id }, attributes: ['id'], transaction });
+    const userStatusIds = userStatuses.map((s: any) => s.id);
+    if (userStatusIds.length > 0) {
+      await StatusLike.destroy({ where: { status_id: userStatusIds }, transaction });
+      await StatusComment.destroy({ where: { status_id: userStatusIds }, transaction });
+      await Report.destroy({ where: { reported_status_id: userStatusIds }, transaction });
+      await Status.destroy({ where: { id: userStatusIds }, transaction });
+    }
+    // Delete likes and comments made by this user on other statuses
+    await StatusLike.destroy({ where: { user_id: id }, transaction });
+    await StatusComment.destroy({ where: { user_id: id }, transaction });
+
+    // 6. Delete Matches, Conversations, and Messages
+    const matches = await Match.findAll({
+      where: { [Op.or]: [{ user1_id: id }, { user2_id: id }] },
+      attributes: ['id'],
+      transaction,
+    });
+    const matchIds = matches.map((m: any) => m.id);
+    if (matchIds.length > 0) {
+      const conversations = await Conversation.findAll({
+        where: { match_id: matchIds },
+        attributes: ['id'],
+        transaction,
+      });
+      const convIds = conversations.map((c: any) => c.id);
+      if (convIds.length > 0) {
+        await Message.destroy({ where: { conversation_id: convIds }, transaction });
+        await Conversation.destroy({ where: { id: convIds }, transaction });
+      }
+      await Match.destroy({ where: { id: matchIds }, transaction });
+    }
+    // Also delete any messages sent by this user
+    await Message.destroy({ where: { sender_id: id }, transaction });
+
+    // 7. Delete Notifications (sent or received)
+    await Notification.destroy({ where: { [Op.or]: [{ user_id: id }, { from_user_id: id }] }, transaction });
+
+    // 8. Delete Reports (reported by or reported against this user)
+    await Report.destroy({ where: { [Op.or]: [{ reporter_id: id }, { reported_user_id: id }] }, transaction });
+
+    // 9. Delete Transactions
+    await Transaction.destroy({ where: { user_id: id }, transaction });
+
+    // 10. Delete the user
+    await user.destroy({ transaction });
+  });
+
+  return res.json({ success: true, message: 'Đã xóa hoàn toàn tài khoản và toàn bộ dữ liệu người dùng.' });
 });
 
 export const getAllStatuses = handler(async (req, res) => {

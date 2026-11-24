@@ -152,3 +152,18 @@ test('daily statistics use Vietnam calendar days around UTC midnight', async () 
   assert.equal(response.data.trend.at(-1).date, today);
   assert.equal(response.data.trend.at(-1).revenue, 99000);
 });
+
+test('admin can delete a user and all related data', async () => {
+  const victim = await makeUser('victim', { role: 'USER' });
+  await models.Status.create({ user_id: victim.id, content: 'victim status' });
+  await models.Notification.create({ user_id: victim.id, type: 'SYSTEM', message: 'test' });
+  
+  assert.equal((await request('/admin/users/' + victim.id, censor, 'DELETE')).status, 403);
+  assert.equal((await request('/admin/users/' + admin.id, admin, 'DELETE')).status, 403);
+
+  const res = await request('/admin/users/' + victim.id, admin, 'DELETE');
+  assert.equal(res.status, 200);
+  assert.equal(await models.User.findByPk(victim.id), null);
+  assert.equal(await models.Status.count({ where: { user_id: victim.id } }), 0);
+  assert.equal(await models.Notification.count({ where: { user_id: victim.id } }), 0);
+});

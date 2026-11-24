@@ -249,6 +249,7 @@ for (const [action, summary, body] of [
   ['verification/revoke', 'Thu hồi xác thực danh tính', undefined],
   ['reset-violations', 'Đặt lại số lần vi phạm', undefined],
 ] as const) operation('put', '/admin/users/{id}/' + action, summary, { ...admin, body, errors: [404, 409] });
+operation('delete', '/admin/users/{id}', 'Xóa hoàn toàn tài khoản và dữ liệu người dùng (ADMIN)', { ...admin, errors: [403, 404] });
 operation('get', '/admin/verifications', 'Danh sách yêu cầu xác thực', { ...admin, parameters: [...pagination, query('status', verificationStatus)], result: ref('Page'), errors: [400] });
 operation('get', '/admin/verifications/{id}', 'Chi tiết và ảnh xác thực', { ...admin, result: ref('Verification'), errors: [404] });
 for (const [action, summary] of [['approve', 'Phê duyệt xác thực'], ['reject', 'Từ chối xác thực']]) operation('post', `/admin/verifications/{id}/${action}`, summary, { ...admin, errors: [404, 409] });

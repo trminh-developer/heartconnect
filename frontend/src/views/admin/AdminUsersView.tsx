@@ -48,6 +48,9 @@ export default function AdminUsersView() {
         {selected.violationCount > 0 && <button className="admin-button secondary" disabled={action.busy} onClick={() => action.ask({ title: 'Đặt lại vi phạm?', description: 'Đặt số vi phạm của ' + personName(selected) + ' về 0. Trạng thái khóa không tự thay đổi.', label: 'Đặt lại vi phạm', action: () => adminService.resetViolations(selected.id), success: 'Đã đặt lại số vi phạm.' })}>Đặt lại vi phạm</button>}
         {selected.isVerified && <button className="admin-button secondary" disabled={action.busy} onClick={() => action.ask({ title: 'Thu hồi xác thực danh tính?', description: 'Thu hồi xác thực của ' + personName(selected) + '. Gói Premium hiện có vẫn giữ nguyên.', label: 'Thu hồi xác thực', danger: true, action: () => adminService.revokeVerification(selected.id), success: 'Đã thu hồi xác thực danh tính.' })}>Thu hồi xác thực</button>}
       </div></div>}
+      {user?.role === 'ADMIN' && selected.id !== user.id && selected.email !== 'admin@heartconnect.com' && <div className="admin-control-section"><h3>Vùng nguy hiểm</h3><div className="admin-actions">
+        <button className="admin-button danger" disabled={action.busy} onClick={() => action.ask({ title: 'Xóa vĩnh viễn tài khoản và dữ liệu?', description: 'Thao tác này sẽ xóa hoàn toàn tài khoản của ' + personName(selected) + ', bao gồm bài viết, tin nhắn, ảnh, lượt tương thích và mọi dữ liệu liên quan. Hành động này KHÔNG THỂ hoàn tác.', label: 'Xóa vĩnh viễn tài khoản', danger: true, action: () => adminService.deleteUser(selected.id), success: 'Đã xóa hoàn toàn tài khoản và dữ liệu người dùng.' })}><i className="bi bi-trash-fill me-1" />Xóa tài khoản & dữ liệu</button>
+      </div></div>}
     </AdminDialog>}
     {action.dialog}
   </>;

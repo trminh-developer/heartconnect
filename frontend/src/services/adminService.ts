@@ -46,4 +46,5 @@ export const adminService = {
   verification: async (id: string): Promise<AdminVerification> => (await apiClient.get(`/admin/verifications/${id}`)).data,
   review: (id: string, approve: boolean) => apiClient.post(`/admin/verifications/${id}/${approve ? 'approve' : 'reject'}`),
   settings: (settings: AdminSettings) => apiClient.put('/admin/settings', { settings }),
+  deleteUser: (id: string) => apiClient.delete(`/admin/users/${id}`),
 };
