@@ -18,7 +18,8 @@ export function useDiscoveryFeed(user?: User | null) {
   const refresh = useCallback(() => setRevision(value => value + 1), []);
 
   useEffect(() => {
-    const current = ++generation.current;
+    const generationRef = generation;
+    const current = ++generationRef.current;
     cursor.current = null;
     inFlight.current = true;
     setUsers([]);
@@ -43,8 +44,8 @@ export function useDiscoveryFeed(user?: User | null) {
       }
     };
     void load();
-    return () => { generation.current++; };
-  }, [key, revision]);
+    return () => { generationRef.current++; };
+  }, [key, revision, user?.id]);
 
   const loadMore = useCallback(async () => {
     if (!cursor.current || inFlight.current || !user?.id) return;

@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import { AuthRequest } from "../../middlewares/authMiddleware";
+import { Notification, User } from '../../models';
+import { z } from 'zod';
 
 export const getNotifications = async (req: AuthRequest, res: Response) => {
   try {
@@ -98,8 +100,15 @@ export const createNotification = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    const { Notification } = require("../../models");
-    const { userId, type, message, fromUserId } = req.body;
+    const { userId, type, message, fromUserId } = z.object({
+      userId: z.string().min(1),
+      fromUserId: z.string().min(1).nullish(),
+      type: z.string().transform(value => value.toUpperCase()).pipe(z.enum(['LIKE', 'MATCH', 'MESSAGE', 'PROFILE_VIEW', 'SUPER_LIKE', 'SYSTEM'])),
+      message: z.string().trim().min(1).max(5000),
+    }).parse(req.body);
+    if (!await User.findByPk(userId) || (fromUserId && !await User.findByPk(fromUserId))) {
+      return res.status(404).json({ error: 'User not found' });
+    }
     const notification = await Notification.create({
       user_id: userId,
       type,
@@ -108,6 +117,7 @@ export const createNotification = async (req: AuthRequest, res: Response) => {
     });
     return res.json(notification);
   } catch (e: any) {
+    if (e instanceof z.ZodError) return res.status(400).json({ error: e.issues.map(issue => issue.message).join(', ') });
     return res.status(500).json({ error: "Internal server error" });
   }
 };

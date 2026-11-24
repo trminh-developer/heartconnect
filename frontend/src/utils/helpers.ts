@@ -108,11 +108,17 @@ export const mapUser = (u: any): any => {
   if (typeof acceptedGoals === 'string') {
     try { acceptedGoals = JSON.parse(acceptedGoals); } catch { acceptedGoals = []; }
   }
+  let photos = u.photos ?? [];
+  if (typeof photos === 'string') {
+    try { photos = JSON.parse(photos); } catch { photos = []; }
+  }
+  photos = Array.isArray(photos) ? photos.filter((photo: unknown) => typeof photo === 'string') : [];
   return {
     ...profile,
     firstName: u.first_name || u.firstName || u.username || 'Người dùng',
     lastName: u.last_name || u.lastName || '',
-    avatar: u.avatar || u.photos?.[0] || '',
+    avatar: u.avatar || photos[0] || '',
+    photos,
     coverPhoto: u.cover_photo || u.coverPhoto || '',
     dateOfBirth: u.date_of_birth || u.dateOfBirth || '',
     gender: u.gender?.toUpperCase(),
@@ -123,6 +129,12 @@ export const mapUser = (u: any): any => {
     matchPercentage: u.match_percentage ?? u.matchPercentage,
     isVerified: u.is_verified !== undefined ? u.is_verified : u.isVerified,
     isOnline: u.is_online !== undefined ? u.is_online : u.isOnline,
+    isPremium: u.is_premium ?? u.isPremium ?? false,
+    premiumExpiresAt: u.premium_expires_at ?? u.premiumExpiresAt,
+    premiumPlanId: u.premium_plan_id ?? u.premiumPlanId,
+    appLogo: u.app_logo ?? u.appLogo ?? null,
+    nameChangedAt: u.name_changed_at ?? u.nameChangedAt,
+    usernameChangedAt: u.username_changed_at ?? u.usernameChangedAt,
     lastActive: u.last_active || u.lastActive,
     location: {
       city: u.city || u.location?.city || '',
@@ -131,12 +143,12 @@ export const mapUser = (u: any): any => {
       longitude: u.longitude ?? u.location?.longitude
     },
     datingPreference: {
-      preferredGender: Array.isArray(genders) ? genders.map((gender: string) => gender.toUpperCase()) : [],
+      preferredGender: Array.isArray(genders) ? genders.filter((gender: unknown) => typeof gender === 'string').map((gender: string) => gender.toUpperCase()) : [],
       ageRange: { min: preference.age_min ?? preference.ageMin ?? preference.ageRange?.min ?? 18,
         max: preference.age_max ?? preference.ageMax ?? preference.ageRange?.max ?? 100 },
       maxDistance: preference.max_distance ?? preference.maxDistance ?? 100,
       relationshipGoal: goal(preference.relationship_goal || preference.relationshipGoal || u.relationship_goal || u.relationshipGoal),
-      acceptedGoals: Array.isArray(acceptedGoals) ? acceptedGoals.map(goal) : [],
+      acceptedGoals: Array.isArray(acceptedGoals) ? acceptedGoals.filter((value: unknown) => typeof value === 'string').map(goal) : [],
       goalRequired: preference.goal_required ?? preference.goalRequired ?? false,
       distanceRequired: preference.distance_required ?? preference.distanceRequired ?? false,
       distanceHalfLife: preference.distance_half_life ?? preference.distanceHalfLife ?? 10,
@@ -164,16 +176,21 @@ export const mapMatch = (m: any): any => {
 
 export const mapMessage = (m: any): any => {
   if (!m) return m;
+  let deletedFor = m.deleted_for ?? m.deletedFor ?? [];
+  if (typeof deletedFor === 'string') {
+    try { deletedFor = JSON.parse(deletedFor); } catch { deletedFor = []; }
+  }
   return {
     ...m,
     id: String(m.id || ''),
     conversationId: m.conversation_id || m.conversationId,
     senderId: m.sender_id || m.senderId,
     timestamp: m.created_at || m.createdAt || m.timestamp,
-    type: m.message_type || m.type,
+    type: String(m.message_type || m.type || 'TEXT').toUpperCase(),
+    status: String(m.status || 'SENT').toUpperCase(),
     isDeleted: m.is_deleted !== undefined ? Boolean(m.is_deleted) : Boolean(m.isDeleted),
     isRecalled: m.is_recalled !== undefined ? Boolean(m.is_recalled) : Boolean(m.isRecalled),
-    deletedFor: m.deleted_for || m.deletedFor || []
+    deletedFor: Array.isArray(deletedFor) ? deletedFor.filter((id: unknown) => typeof id === 'string') : [],
   };
 };
 
@@ -181,8 +198,10 @@ export const mapConversation = (c: any): any => {
   if (!c) return c;
   return {
     ...c,
-    lastMessage: c.lastMessage ? mapMessage(c.lastMessage) : null,
-    participants: c.participants?.map(mapUser) || []
+    participants: Array.isArray(c.participants) ? c.participants.map(mapUser) : [],
+    lastMessage: c.lastMessage || c.last_message ? mapMessage(c.lastMessage || c.last_message) : undefined,
+    unreadCount: Number(c.unread_count ?? c.unreadCount ?? 0),
+    updatedAt: c.updated_at ?? c.updatedAt,
   };
 };
 
@@ -190,10 +209,11 @@ export const mapNotification = (n: any): any => {
   if (!n) return n;
   return {
     ...n,
-    userId: n.user_id || n.userId,
-    fromUserId: n.from_user_id || n.fromUserId,
+    userId: n.user_id ?? n.userId,
+    type: String(n.type || 'SYSTEM').toUpperCase(),
     timestamp: n.created_at || n.createdAt || n.timestamp,
-    isRead: n.is_read !== undefined ? n.is_read : n.isRead,
+    isRead: n.is_read ?? n.isRead ?? false,
+    fromUserId: n.from_user_id || n.fromUserId,
     fromUser: n.fromUser ? mapUser(n.fromUser) : null
   };
 };

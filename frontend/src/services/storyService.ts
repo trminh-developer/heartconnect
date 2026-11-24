@@ -1,8 +1,14 @@
 import { Story } from '../models';
+import apiClient from './apiClient';
+import { mapUser } from '../utils/helpers';
 
-// MOCKED for now since MySQL backend doesn't implement stories yet
 export const getFeedStories = async (): Promise<{ [userId: string]: Story[] }> => {
-  return {};
+  const response = await apiClient.get<Story[]>('/stories');
+  const grouped: Record<string, Story[]> = Object.create(null);
+  for (const story of response.data) {
+    (grouped[story.userId] ??= []).push({ ...story, user: mapUser(story.user) });
+  }
+  return grouped;
 };
 
 export const createStory = async (
@@ -12,15 +18,6 @@ export const createStory = async (
   textContent?: string,
   backgroundColor?: string
 ): Promise<Story | null> => {
-  
-  return {
-    id: Date.now().toString(),
-    userId,
-    mediaUrl,
-    mediaType,
-    textContent,
-    backgroundColor: backgroundColor || '#000000',
-    createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-  };
+  const response = await apiClient.post<Story>('/stories', { mediaType, mediaUrl, textContent, backgroundColor });
+  return { ...response.data, user: mapUser(response.data.user) };
 };

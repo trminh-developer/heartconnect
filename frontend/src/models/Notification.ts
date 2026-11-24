@@ -13,7 +13,7 @@ export interface Notification {
   id: string;
   type: NotificationType;
   userId: string;
-  fromUser: User;
+  fromUser: User | null;
   message: string;
   timestamp: string;
   isRead: boolean;

@@ -58,7 +58,9 @@ export const DiscoverCard: React.FC<DiscoverCardProps> = ({
 
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch (err) {}
+    } catch {
+      // The browser may release pointer capture before a cancellation event.
+    }
 
     const deltaX = e.clientX - startPos.current.x;
     const deltaY = e.clientY - startPos.current.y;

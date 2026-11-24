@@ -55,6 +55,16 @@ User.init(
       { fields: ['latitude', 'longitude'] }] },
 );
 
+class RefreshSession extends Model {}
+RefreshSession.init({
+  token_hash: { type: DataTypes.STRING(64), primaryKey: true, allowNull: false },
+  user_id: { type: DataTypes.UUID, allowNull: false },
+  expires_at: { type: DataTypes.DATE, allowNull: false },
+}, {
+  sequelize, modelName: 'RefreshSession', tableName: 'refresh_sessions', timestamps: false,
+  indexes: [{ fields: ['user_id'] }, { fields: ['expires_at'] }],
+});
+
 class UserPreference extends Model {}
 UserPreference.init(
   {
@@ -313,6 +323,21 @@ Status.init(
   },
 );
 
+class Story extends Model {}
+Story.init({
+  id: { type: DataTypes.UUID, primaryKey: true, defaultValue: DataTypes.UUIDV4 },
+  user_id: { type: DataTypes.UUID, allowNull: false },
+  media_type: { type: DataTypes.STRING, allowNull: false },
+  media_url: { type: DataTypes.TEXT('long') },
+  text_content: { type: DataTypes.TEXT },
+  background_color: { type: DataTypes.STRING(9) },
+  created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW, allowNull: false },
+  expires_at: { type: DataTypes.DATE, allowNull: false },
+}, {
+  sequelize, modelName: 'Story', tableName: 'stories', timestamps: false,
+  indexes: [{ fields: ['expires_at'] }, { fields: ['user_id', 'created_at'] }],
+});
+
 class StatusLike extends Model {}
 StatusLike.init(
   {
@@ -381,6 +406,9 @@ User.hasMany(VerificationRequest, {
 VerificationRequest.belongsTo(User, { foreignKey: "user_id", as: "user" });
 
 // Associations
+User.hasMany(RefreshSession, { foreignKey: 'user_id', onDelete: 'CASCADE' });
+RefreshSession.belongsTo(User, { foreignKey: 'user_id', onDelete: 'CASCADE' });
+
 User.hasOne(UserPreference, { foreignKey: "user_id" });
 UserPreference.belongsTo(User, { foreignKey: "user_id" });
 
@@ -422,6 +450,8 @@ Notification.belongsTo(User, { foreignKey: "from_user_id", as: "FromUser" });
 
 User.hasMany(Status, { foreignKey: "user_id" });
 Status.belongsTo(User, { foreignKey: "user_id" });
+User.hasMany(Story, { foreignKey: 'user_id', onDelete: 'CASCADE' });
+Story.belongsTo(User, { foreignKey: 'user_id', onDelete: 'CASCADE' });
 
 Status.hasMany(StatusLike, { foreignKey: "status_id" });
 StatusLike.belongsTo(Status, { foreignKey: "status_id" });
@@ -509,6 +539,7 @@ SystemSetting.init(
 export {
   sequelize,
   User,
+  RefreshSession,
   UserPreference,
   Interest,
   UserInterest,
@@ -524,6 +555,7 @@ export {
   Message,
   Notification,
   Status,
+  Story,
   StatusLike,
   StatusComment,
   Report,

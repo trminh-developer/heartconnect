@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { Match } from '../../models';
 import Button from '../common/Button';
 import Avatar from '../common/Avatar';
-// @ts-ignore
 import { useAuth } from '../../hooks/useAuth';
 
 interface MatchModalProps {

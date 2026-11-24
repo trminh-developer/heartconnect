@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { AuthController } from "./AuthController";
+import { requireAuth } from '../../middlewares/authMiddleware';
 export function initAuthModule() {
   const router = Router();
   const controller = new AuthController();
@@ -10,6 +11,6 @@ export function initAuthModule() {
   router.post("/forgot-password", controller.forgotPassword.bind(controller));
   router.post("/verify-otp", controller.verifyOTP.bind(controller));
   router.post("/reset-password", controller.resetPassword.bind(controller));
-  router.get("/me", controller.me.bind(controller));
+  router.get("/me", requireAuth, controller.me.bind(controller));
   return router;
 }

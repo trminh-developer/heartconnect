@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Button, Toast, Modal, Input } from "../components/common";
 import { useAuth } from "../hooks/useAuth";
 import { Gender, RelationshipGoal, UserProfileUpdate } from "../models";
@@ -55,12 +55,16 @@ const SettingsView = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const cameraGeneration = useRef(0);
   const [idCardImage, setIdCardImage] = useState<string | null>(null);
   const [recordedVideo, setRecordedVideo] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [livenessInstruction, setLivenessInstruction] = useState("Vui lòng nhìn thẳng vào camera");
-  const mediaRecorderRef = useRef<any>(null);
-  const chunksRef = useRef<any[]>([]);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const recordingInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordingStopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   
   const handleIdCardUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,32 +78,56 @@ const SettingsView = () => {
     }
   };
 
-  const startCamera = async () => {
+  const startCamera = useCallback(async () => {
+    const generation = ++cameraGeneration.current;
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+      if (generation !== cameraGeneration.current) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        return;
+      }
+      streamRef.current?.getTracks().forEach(track => track.stop());
+      streamRef.current = mediaStream;
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
     } catch (err) {
       console.error("Lỗi mở camera", err);
-      showAlert("Không thể mở camera. Vui lòng cấp quyền truy cập.", "error");
+      if (generation === cameraGeneration.current) showAlert("Không thể mở camera. Vui lòng cấp quyền truy cập.", "error");
     }
-  };
+  }, [showAlert]);
 
-  const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
+  const stopCamera = useCallback(() => {
+    cameraGeneration.current++;
+    if (recordingInterval.current) clearInterval(recordingInterval.current);
+    if (recordingStopTimer.current) clearTimeout(recordingStopTimer.current);
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.onstop = null;
+      recorder.stop();
     }
-  };
+    streamRef.current?.getTracks().forEach(track => track.stop());
+    streamRef.current = null;
+    setStream(null);
+    setIsRecording(false);
+  }, []);
 
   
   const startRecording = () => {
     if (!stream) return;
+    if (typeof MediaRecorder === 'undefined') {
+      showAlert('Trình duyệt này không hỗ trợ ghi hình. Vui lòng dùng trình duyệt khác.', 'error');
+      return;
+    }
+    const mimeType = ['video/webm', 'video/mp4'].find(type => MediaRecorder.isTypeSupported(type));
+    if (!mimeType) {
+      showAlert('Trình duyệt này không hỗ trợ định dạng ghi hình.', 'error');
+      return;
+    }
     setIsRecording(true);
     chunksRef.current = [];
-    const mediaRecorder = new (window as any).MediaRecorder(stream, { mimeType: 'video/webm' });
+    const mediaRecorder = new MediaRecorder(stream, { mimeType });
     mediaRecorderRef.current = mediaRecorder;
     
     mediaRecorder.ondataavailable = (e: any) => {
@@ -107,7 +135,7 @@ const SettingsView = () => {
     };
     
     mediaRecorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+      const blob = new Blob(chunksRef.current, { type: mimeType });
       const reader = new FileReader();
       reader.readAsDataURL(blob);
       reader.onloadend = () => {
@@ -131,15 +159,15 @@ const SettingsView = () => {
     let step = 0;
     setLivenessInstruction(instructions[0] || '');
     
-    const interval = setInterval(() => {
+    recordingInterval.current = setInterval(() => {
       step++;
       if (step < instructions.length) {
         setLivenessInstruction(instructions[step] || '');
       }
       if (step >= instructions.length - 1) {
-        clearInterval(interval);
-        setTimeout(() => {
-          mediaRecorder.stop();
+        if (recordingInterval.current) clearInterval(recordingInterval.current);
+        recordingStopTimer.current = setTimeout(() => {
+          if (mediaRecorder.state !== 'inactive') mediaRecorder.stop();
           setIsRecording(false);
           stopCamera();
         }, 1000);
@@ -150,20 +178,15 @@ const SettingsView = () => {
   const retakeVideo = () => {
     setRecordedVideo(null);
     setLivenessInstruction("Vui lòng nhìn thẳng vào camera");
-    startCamera();
   };
-useEffect(() => {
+  useEffect(() => {
     if (isVerificationModalOpen && verificationStep === 2 && !recordedVideo) {
       startCamera();
     } else {
       stopCamera();
     }
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [isVerificationModalOpen, verificationStep, recordedVideo]);
+    return stopCamera;
+  }, [isVerificationModalOpen, verificationStep, recordedVideo, startCamera, stopCamera]);
 
   useEffect(() => {
     if (user) {
@@ -179,7 +202,7 @@ useEffect(() => {
         setEditUsername(user.username || "");
       }
     }
-  }, [user]);
+  }, [user, isEditingUsername]);
 
   // Helper to trigger save and show toast
   const saveChanges = async (updatedFields: UserProfileUpdate): Promise<boolean> => {
@@ -712,7 +735,7 @@ useEffect(() => {
             </Button>
             <Button
               className="btn-primary"
-              onClick={() => {
+              onClick={async () => {
                 if (!currentPassword) {
                   showAlert("Vui lòng nhập mật khẩu hiện tại!", "error");
                   return;
@@ -725,7 +748,7 @@ useEffect(() => {
                   showAlert("Mật khẩu nhập lại không khớp!", "error");
                   return;
                 }
-                saveChanges({ password: newPassword });
+                if (!await saveChanges({ password: newPassword, currentPassword })) return;
                 setIsChangingPassword(false);
                 setCurrentPassword("");
                 setNewPassword("");

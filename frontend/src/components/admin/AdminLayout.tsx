@@ -32,10 +32,11 @@ function AdminShell() {
   }, []);
   useEffect(() => {
     if (!open || !compact) return;
+    const trigger = menuButton.current;
     sidebar.current?.querySelector<HTMLAnchorElement>('a')?.focus();
     const handleKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
     document.addEventListener('keydown', handleKey);
-    return () => { document.removeEventListener('keydown', handleKey); menuButton.current?.focus(); };
+    return () => { document.removeEventListener('keydown', handleKey); trigger?.focus(); };
   }, [open, compact]);
   return <div className={'hc-admin' + (isDarkMode ? ' admin-dark' : '')}>
     <a className="admin-skip-link" href="#admin-content">Đến nội dung chính</a>

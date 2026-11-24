@@ -2,8 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { User } from "../models";
 import { Op } from 'sequelize';
-
-const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key";
+import { accessTokenFrom, JWT_SECRET } from '../config/auth';
 
 async function touchActivity(user: any) {
   const cutoff = new Date(Date.now() - 5 * 60 * 1000);
@@ -24,18 +23,16 @@ export const requireAuth = async (
   next: NextFunction,
 ) => {
   try {
-    // Lấy token từ header Authorization (cách cũ) HOẶC cookie (cách mới)
-    let token = req.cookies?.accessToken;
-
-    if (!token && req.headers.authorization?.startsWith("Bearer ")) {
-      token = req.headers.authorization.split(" ")[1];
-    }
+    const token = accessTokenFrom(req);
 
     if (!token) {
       return res.status(401).json({ error: "Unauthorized: No token provided" });
     }
 
-    const decoded: any = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
+    if (typeof decoded === 'string' || typeof decoded.id !== 'string' || !decoded.id) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+    }
     const user = await User.findByPk(decoded.id);
 
     if (!user) {
@@ -55,7 +52,8 @@ export const requireAuth = async (
     req.user = user;
     next();
   } catch (error) {
-    return res.status(401).json({ error: "Unauthorized: Invalid token" });
+    if (error instanceof jwt.JsonWebTokenError) return res.status(401).json({ error: "Unauthorized: Invalid token" });
+    next(error);
   }
 };
 
@@ -65,12 +63,10 @@ export const optionalAuth = async (
   next: NextFunction,
 ) => {
   try {
-    let token = req.cookies?.accessToken;
-    if (!token && req.headers.authorization?.startsWith("Bearer ")) {
-      token = req.headers.authorization.split(" ")[1];
-    }
+    const token = accessTokenFrom(req);
     if (token) {
-      const decoded: any = jwt.verify(token, JWT_SECRET);
+      const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
+      if (typeof decoded === 'string' || typeof decoded.id !== 'string' || !decoded.id) return next();
       const user = await User.findByPk(decoded.id);
       if (
         user &&
@@ -82,7 +78,7 @@ export const optionalAuth = async (
       }
     }
   } catch (error) {
-    // Ignore invalid token for optional auth
+    if (!(error instanceof jwt.JsonWebTokenError)) return next(error);
   }
   next();
 };
@@ -97,15 +93,6 @@ export const requireAdmin = (
   }
 
   if (req.user.role !== "ADMIN" && req.user.role !== "CENSOR") {
-    require("fs").appendFileSync(
-      "auth_debug.log",
-      new Date().toISOString() +
-        " - Forbidden! Role is: " +
-        req.user.role +
-        " - ID: " +
-        req.user.id +
-        "\n",
-    );
     return res
       .status(403)
       .json({

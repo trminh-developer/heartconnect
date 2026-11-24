@@ -1,6 +1,8 @@
 import React, { createContext, useReducer, useCallback, ReactNode, useRef } from 'react';
 import { Conversation, Message, MessageType } from '../models';
-import { messageService } from '../services';
+import { authService, messageService } from '../services';
+
+const getCurrentUserId = () => authService.getCurrentUser()?.id || '';
 
 interface ChatState {
   conversations: Conversation[];
@@ -33,7 +35,12 @@ const chatReducer = (state: ChatState, action: ChatAction): ChatState => {
       return { ...state, activeConversation: action.payload.conversation, messages: action.payload.messages,
         conversations: state.conversations.map(conversation => conversation.id === action.payload.conversation.id ? { ...conversation, unreadCount: 0 } : conversation) };
     case 'NEW_MESSAGE':
-      return { ...state, messages: [...state.messages, action.payload] };
+      return { ...state,
+        messages: state.activeConversation?.id === action.payload.conversationId
+          ? [...state.messages.filter(message => message.id !== action.payload.id), action.payload] : state.messages,
+        conversations: state.conversations.map(conversation => conversation.id === action.payload.conversationId
+          ? { ...conversation, lastMessage: action.payload, updatedAt: action.payload.timestamp } : conversation),
+      };
     case 'DELETE_MESSAGE': {
       const remainingMessages = state.messages.filter(m => m.id !== action.payload);
       const updatedConversations = state.conversations.map(c => {
@@ -85,14 +92,6 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [state, dispatch] = useReducer(chatReducer, initialState);
   const conversationsRef = useRef<Conversation[]>([]);
 
-  const getCurrentUserId = () => {
-    try {
-      const userStr = localStorage.getItem('currentUser');
-      if (userStr) return JSON.parse(userStr).id;
-    } catch (e) {}
-    return '';
-  };
-
   const loadConversations = useCallback(async () => {
     const currentUserId = getCurrentUserId();
     if (!currentUserId) return;
@@ -117,7 +116,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
-  const selectConversation = async (conversationId: string) => {
+  const selectConversation = useCallback(async (conversationId: string) => {
     const conversation = conversationsRef.current.find(c => c.id === conversationId);
     if (conversation) {
       sessionStorage.setItem('activeConversationId', conversationId);
@@ -126,7 +125,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       conversationsRef.current = conversationsRef.current.map(item => item.id === conversationId ? { ...item, unreadCount: 0 } : item);
       dispatch({ type: 'SELECT_CONVERSATION', payload: { conversation, messages } });
     }
-  };
+  }, []);
 
   const sendMessage = async (conversationId: string, content: string, type?: MessageType) => {
     const currentUserId = getCurrentUserId();

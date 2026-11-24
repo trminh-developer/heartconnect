@@ -1,8 +1,6 @@
 import React from 'react';
 import { NavLink, Link } from 'react-router-dom';
-// @ts-ignore
 import { useNotifications } from '../../hooks/useNotifications';
-// @ts-ignore
 import { useChat } from '../../hooks/useChat';
 import Badge from '../common/Badge';
 import { useTranslation } from 'react-i18next';
@@ -15,11 +13,10 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ onNavClick }) => {
   const { user } = useAuth();
   const { unreadCount } = useNotifications();
-  // @ts-ignore
   const { conversations } = useChat();
   const { t } = useTranslation();
 
-  const unreadMessagesCount = 0; // Calculate from conversations in real app
+  const unreadMessagesCount = conversations.reduce((total, conversation) => total + conversation.unreadCount, 0);
 
   return (
     <aside className="app-sidebar bg-white border-end d-flex flex-column py-4">

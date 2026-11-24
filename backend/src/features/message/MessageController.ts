@@ -181,7 +181,10 @@ export const markAsRead = async (req: AuthRequest, res: Response) => {
   try {
     const conversation = await conversationFor(req.params.conversationId as string, req.user.id);
     const otherId = [conversation.Match.user1_id, conversation.Match.user2_id].find(id => id !== req.user.id);
-    await Notification.update({ is_read: true }, { where: { user_id: req.user.id, from_user_id: otherId, type: { [Op.in]: ['message', 'MESSAGE'] }, is_read: false } });
+    await datingTransaction(async transaction => {
+      await Notification.update({ is_read: true }, { where: { user_id: req.user.id, from_user_id: otherId, type: { [Op.in]: ['message', 'MESSAGE'] }, is_read: false }, transaction });
+      await Message.update({ status: 'seen' }, { where: { conversation_id: conversation.get('id'), sender_id: otherId }, transaction });
+    });
     return res.json({ success: true });
   } catch (error: any) {
     return res.status(error.statusCode || 500).json({ error: error.statusCode ? error.message : 'Internal server error' });

@@ -68,5 +68,6 @@ export type UserProfileUpdate = Partial<Pick<User,
     ageRange?: Partial<DatingPreference['ageRange']>;
   };
   password?: string;
+  currentPassword?: string;
   refreshLocation?: boolean;
 };

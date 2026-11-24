@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../contexts/ThemeContext';
 import { isPremiumActive } from '../../utils/premium';
 import UserBadge from '../user/UserBadge';
+import { useAlert } from '../../contexts/AlertContext';
 
 export const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
@@ -18,6 +19,7 @@ export const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const { isDarkMode, toggleTheme } = useTheme();
+  const { showAlert } = useAlert();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
@@ -38,9 +40,13 @@ export const Navbar: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch {
+      showAlert('Không thể đăng xuất. Vui lòng thử lại.', 'error');
+    }
   };
 
   const toggleLanguage = (e?: React.MouseEvent) => {

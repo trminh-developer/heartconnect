@@ -1,22 +1,26 @@
 import { z } from "zod";
-import { normalizeGender, normalizeGoal } from '../features/match/compatibility';
+import { ageOn, normalizeGender, normalizeGoal } from '../features/match/compatibility';
 
 const genderSchema = z.string().transform(normalizeGender).pipe(z.enum(['male', 'female', 'other']));
 const goalSchema = z.string().transform(normalizeGoal).pipe(z.enum(['LONG_TERM', 'SHORT_TERM', 'FRIENDSHIP', 'NOT_SURE', '']));
+const usernameSchema = z.string().trim().min(3).max(30).regex(/^[a-zA-Z0-9_.-]+$/, 'Username chỉ gồm chữ, số, dấu chấm, gạch dưới và gạch ngang.');
+const dateOfBirthSchema = z.string().refine(value => {
+  const age = ageOn(value);
+  return age !== null && age >= 18 && age <= 100;
+}, 'Date of birth must be a valid YYYY-MM-DD date for an adult aged 18 to 100');
 
 export const registerSchema = z.object({
-  email: z.string().email("Invalid email format"),
+  email: z.string().trim().email("Invalid email format").toLowerCase(),
+  username: usernameSchema.optional(),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  firstName: z.string().min(1, "First name is required").max(50),
-  lastName: z.string().min(1, "Last name is required").max(50),
+  firstName: z.string().trim().min(1, "First name is required").max(50),
+  lastName: z.string().trim().min(1, "Last name is required").max(50),
   gender: genderSchema,
-  dateOfBirth: z
-    .string()
-    .refine((val) => !isNaN(Date.parse(val)), "Invalid date format"),
+  dateOfBirth: dateOfBirthSchema,
 });
 
 export const updateProfileSchema = z.object({
-  username: z.string().trim().min(3).max(30).regex(/^[a-zA-Z0-9_.-]+$/, 'Username chỉ gồm chữ, số, dấu chấm, gạch dưới và gạch ngang.').optional(),
+  username: usernameSchema.optional(),
   firstName: z.string().trim().min(1).max(50).optional(),
   lastName: z.string().trim().max(50).optional(),
   appLogo: z.string().max(1500000).refine(
@@ -24,13 +28,8 @@ export const updateProfileSchema = z.object({
     'Logo phải là ảnh PNG, JPEG, WebP hoặc GIF, tối đa 1 MB.',
   ).nullish(),
   password: z.string().min(6).nullish(),
-  dateOfBirth: z
-    .string()
-    .refine(
-      (val) => val === "" || !isNaN(Date.parse(val)),
-      "Invalid date format",
-    )
-    .nullish(),
+  currentPassword: z.string().min(1).optional(),
+  dateOfBirth: z.union([z.literal(''), dateOfBirthSchema]).nullish(),
   bio: z.string().max(500).nullish(),
   coverPhoto: z.string().nullish(),
   avatar: z.string().nullish(),
@@ -83,4 +82,6 @@ export const updateProfileSchema = z.object({
       distanceHalfLife: z.number().min(0.1).max(1000).optional(),
     })
     .nullish(),
+}).refine(body => !body.password || !!body.currentPassword, {
+  path: ['currentPassword'], message: 'Current password is required to change the password',
 });

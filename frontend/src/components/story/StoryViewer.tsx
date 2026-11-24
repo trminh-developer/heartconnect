@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Story } from '../../models';
 
 interface StoryViewerProps {
@@ -15,18 +15,22 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ stories, onClose, onCo
   
   const STORY_DURATION = 5000; // 5 seconds for text/image
 
-  if (!currentStory) {
-    if (onComplete) onComplete();
-    else onClose();
-    return null;
-  }
+  const goToNext = useCallback(() => {
+    if (currentIndex < stories.length - 1) setCurrentIndex(prev => prev + 1);
+    else (onComplete || onClose)();
+  }, [currentIndex, stories.length, onComplete, onClose]);
 
   useEffect(() => {
+    if (!currentStory) (onComplete || onClose)();
+  }, [currentStory, onComplete, onClose]);
+
+  useEffect(() => {
+    if (!currentStory) return;
     setProgress(0);
     
     let animationFrameId: number;
-    let startTime = Date.now();
-    let duration = STORY_DURATION;
+    const startTime = Date.now();
+    const duration = STORY_DURATION;
 
     const animate = () => {
       if (!currentStory) return;
@@ -56,16 +60,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ stories, onClose, onCo
     animationFrameId = requestAnimationFrame(animate);
 
     return () => cancelAnimationFrame(animationFrameId);
-  }, [currentIndex, currentStory]);
-
-  const goToNext = () => {
-    if (currentIndex < stories.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-    } else {
-      if (onComplete) onComplete();
-      else onClose();
-    }
-  };
+  }, [currentIndex, currentStory, goToNext]);
 
   const goToPrev = () => {
     if (currentIndex > 0) {

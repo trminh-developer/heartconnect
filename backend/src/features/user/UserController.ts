@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
-import { User, UserPreference, UserBlock, DatingEvent, Report, sequelize } from "../../models";
+import { User, UserPreference, UserBlock, DatingEvent, Report, RefreshSession } from "../../models";
 import { UniqueConstraintError, Op } from 'sequelize';
 import { AuthRequest } from "../../middlewares/authMiddleware";
 import { z } from "zod";
@@ -104,7 +104,7 @@ export const updateUserProfile = async (req: AuthRequest, res: Response) => {
     }
 
     const body = updateProfileSchema.parse(req.body);
-    const user = await sequelize.transaction(async (transaction) => {
+    const user = await datingTransaction(async (transaction) => {
       const user: any = await User.findByPk(userIdToUpdate, { transaction, lock: transaction.LOCK.UPDATE });
       if (!user) throw Object.assign(new Error('User not found'), { statusCode: 404 });
       const updateData: any = {};
@@ -151,7 +151,11 @@ export const updateUserProfile = async (req: AuthRequest, res: Response) => {
 
       // Hash password if updated
       if (body.password && body.password.trim() !== "") {
+        if (!body.currentPassword || !await bcrypt.compare(body.currentPassword, req.user.password)) {
+          throw datingError('Current password is incorrect.');
+        }
         updateData.password = await bcrypt.hash(body.password, 10);
+        await RefreshSession.destroy({ where: { user_id: userIdToUpdate }, transaction });
       }
 
       if (body.location?.city !== undefined) updateData.city = body.location.city;

@@ -9,7 +9,7 @@ export const login = async (email: string, password: string): Promise<User> => {
     const res = await apiClient.post('/auth/login', { email, password });
             return mapUser(res.data.user);
   } catch (err: any) {
-    throw new Error(err.response?.data?.error || err.message || 'Login failed');
+    throw new Error(err.response?.data?.error || err.message || 'Login failed', { cause: err });
   }
 };
 
@@ -18,7 +18,7 @@ export const register = async (data: any): Promise<User> => {
     const res = await apiClient.post('/auth/register', data);
             return mapUser(res.data.user);
   } catch (err: any) {
-    throw new Error(err.response?.data?.error || err.message || 'Registration failed');
+    throw new Error(err.response?.data?.error || err.message || 'Registration failed', { cause: err });
   }
 };
 
@@ -36,8 +36,14 @@ export const refreshUser = async (id: string): Promise<User | null> => {
 };
 
 export const getCurrentUser = (): User | null => {
-  const userStr = localStorage.getItem('currentUser');
-  return userStr ? JSON.parse(userStr) : null;
+  try {
+    const userStr = localStorage.getItem('currentUser');
+    const cached: unknown = userStr ? JSON.parse(userStr) : null;
+    return cached && typeof cached === 'object' && 'id' in cached && typeof cached.id === 'string'
+      ? mapUser(cached) : null;
+  } catch {
+    return null;
+  }
 };
 
 export const setCurrentUser = (user: User | null): void => {
@@ -53,8 +59,12 @@ export const updateUserInList = async (id: string, changes: UserProfileUpdate): 
   return mapUser(res.data.user);
 };
 
-export const forgotPassword = async (email: string) => { await apiClient.post('/auth/forgot-password', { email }); };
-export const verifyOTP = async (email: string, otp: string) => { await apiClient.post('/auth/verify-otp', { email, otp }); };
-export const resetPassword = async (email: string, password: string) => { await apiClient.post('/auth/reset-password', { email, password }); };
+async function recoveryRequest(path: string, body: Record<string, string>) {
+  try { await apiClient.post('/auth/' + path, body); }
+  catch (error: any) { throw new Error(error.response?.data?.error || 'Password recovery is unavailable.', { cause: error }); }
+}
+export const forgotPassword = (email: string) => recoveryRequest('forgot-password', { email });
+export const verifyOTP = (email: string, otp: string) => recoveryRequest('verify-otp', { email, otp });
+export const resetPassword = (email: string, password: string) => recoveryRequest('reset-password', { email, password });
 
 

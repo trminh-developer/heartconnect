@@ -1,6 +1,6 @@
 ﻿import React, { createContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
 import { Notification } from '../models';
-import { notificationService } from '../services';
+import { authService, notificationService } from '../services';
 
 interface NotificationState {
   notifications: Notification[];
@@ -26,12 +26,14 @@ const notificationReducer = (state: NotificationState, action: NotificationActio
       return { ...state, isLoading: true };
     case 'LOAD_NOTIFICATIONS_SUCCESS':
       return { ...state, notifications: action.payload.notifications, unreadCount: action.payload.unreadCount, isLoading: false };
-    case 'MARK_AS_READ':
+    case 'MARK_AS_READ': {
+      if (!state.notifications.some(notification => notification.id === action.payload && !notification.isRead)) return state;
       return {
         ...state,
         notifications: state.notifications.map(n => n.id === action.payload ? { ...n, isRead: true } : n),
         unreadCount: Math.max(0, state.unreadCount - 1),
       };
+    }
     case 'MARK_ALL_AS_READ':
       return {
         ...state,
@@ -55,11 +57,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [state, dispatch] = useReducer(notificationReducer, initialState);
 
   const getCurrentUserId = () => {
-    try {
-      const userStr = localStorage.getItem('currentUser');
-      if (userStr) return JSON.parse(userStr).id;
-    } catch (e) {}
-    return '';
+    return authService.getCurrentUser()?.id || '';
   };
 
   const loadNotifications = useCallback(async () => {
@@ -85,7 +83,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     }, 10000);
 
     return () => clearInterval(interval);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadNotifications]);
 
   const markAsRead = async (id: string) => {
     await notificationService.markAsRead(id);

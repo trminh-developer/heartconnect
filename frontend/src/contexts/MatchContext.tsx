@@ -1,6 +1,6 @@
 import React, { createContext, useReducer, useCallback, useEffect, ReactNode } from 'react';
 import { Match } from '../models';
-import { matchService } from '../services';
+import { authService, matchService } from '../services';
 import { useAuth } from '../hooks/useAuth';
 
 interface MatchState {
@@ -56,15 +56,11 @@ export const MatchProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   useEffect(() => { dispatch({ type: 'RESET' }); }, [user?.id]);
 
   const getCurrentUserId = () => {
-    try {
-      const userStr = localStorage.getItem('currentUser');
-      if (userStr) return JSON.parse(userStr).id;
-    } catch (e) {}
-    return '';
+    return authService.getCurrentUser()?.id || '';
   };
 
   const loadMatches = useCallback(async () => {
-    const currentUserId = getCurrentUserId();
+    const currentUserId = user?.id;
     if (!currentUserId) return;
     dispatch({ type: 'LOAD_MATCHES_START' });
     try {

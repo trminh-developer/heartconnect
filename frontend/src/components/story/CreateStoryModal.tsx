@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Modal, Button, Loading } from '../common';
 import { storyService } from '../../services';
 import { useAuth } from '../../hooks/useAuth';
@@ -19,9 +19,17 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ isOpen, onCl
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
+      const isVideo = ['video/mp4', 'video/webm', 'video/quicktime'].includes(selectedFile.type);
+      const isImage = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(selectedFile.type);
+      if ((!isImage && !isVideo) || selectedFile.size > (isVideo ? 28 : 10) * 1024 * 1024) {
+        alert('Chọn ảnh PNG, JPEG, WebP, GIF tối đa 10 MB hoặc video MP4, WebM, MOV tối đa 28 MB.');
+        return;
+      }
       setFile(selectedFile);
       const url = URL.createObjectURL(selectedFile);
       setPreviewUrl(url);
@@ -42,12 +50,13 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ isOpen, onCl
     try {
       let mediaUrl = undefined;
       
-      if (file) {
-        mediaUrl = await new Promise<string>((resolve) => {
+      if (file && type !== 'text') {
+        mediaUrl = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onloadend = () => {
             resolve(reader.result as string);
           };
+          reader.onerror = () => reject(new Error('Không thể đọc tập tin.'));
           reader.readAsDataURL(file);
         });
       }
@@ -58,7 +67,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ isOpen, onCl
       resetForm();
       onClose();
     } catch (error: any) {
-      alert(`Có lỗi xảy ra: ${error.message}`);
+      alert(`Có lỗi xảy ra: ${error.response?.data?.error || error.message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -94,7 +103,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ isOpen, onCl
 
       <input 
         type="file" 
-        accept="image/*,video/mp4,video/quicktime" 
+        accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
         className="d-none" 
         ref={fileInputRef} 
         onChange={handleFileChange}
@@ -107,6 +116,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ isOpen, onCl
               className="form-control bg-transparent text-white border-0 text-center fw-bold fs-3"
               style={{ resize: 'none', outline: 'none', boxShadow: 'none' }}
               placeholder="Nhập nội dung..."
+              maxLength={1000}
               value={textContent}
               onChange={(e) => setTextContent(e.target.value)}
               rows={4}

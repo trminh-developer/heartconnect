@@ -18,13 +18,13 @@ let baseUrl: string;
 before(async () => {
   models = await import('../src/models');
   assert.equal(models.sequelize.options.storage, ':memory:');
-  const [{ default: users }, { default: matches }, { AuthController }, { default: messages }] = await Promise.all([
-    import('../src/features/user/UserModule'), import('../src/features/match/MatchModule'), import('../src/features/auth/AuthController'),
+  const [{ default: users }, { default: matches }, { initAuthModule }, { default: messages }] = await Promise.all([
+    import('../src/features/user/UserModule'), import('../src/features/match/MatchModule'), import('../src/features/auth/AuthModule'),
     import('../src/features/message/MessageModule'),
   ]);
   const app = express();
   app.use(express.json(), cookieParser(), users, matches, messages);
-  app.get('/api/auth/me', (req, res) => new AuthController().me(req, res));
+  app.use('/api/auth', initAuthModule());
   server = app.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const address = server.address();

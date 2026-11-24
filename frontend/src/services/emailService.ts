@@ -28,6 +28,6 @@ export const sendOTPEmail = async (toEmail: string, otpCode: string) => {
     return response.status === 200;
   } catch (error) {
     console.error('Lỗi khi gửi email:', error);
-    throw new Error('Không thể gửi email OTP. Vui lòng kiểm tra cấu hình EmailJS.');
+    throw new Error('Không thể gửi email OTP. Vui lòng kiểm tra cấu hình EmailJS.', { cause: error });
   }
 };
