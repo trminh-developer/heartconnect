@@ -2,6 +2,7 @@ import { Sequelize } from "sequelize";
 import dotenv from "dotenv";
 import path from "path";
 import os from "os";
+import fs from 'fs';
 
 dotenv.config({ path: [path.resolve(__dirname, '../../.env.local'), path.resolve(__dirname, '../../.env')] });
 
@@ -23,6 +24,14 @@ const useMockDb =
   !dbUrl ||
   dbUrl.startsWith("sqlite");
 
+const explicitMock = process.env.USE_MOCK_DB === 'true' || process.env.DATABASE_TYPE === 'mock';
+if (!explicitMock && externalDbRequested && (!dbUrl || dbUrl.startsWith('sqlite'))) {
+  throw new Error('An external database was requested, but DATABASE_URL or POSTGRES_URL is missing or is a SQLite URL.');
+}
+if (useMockDb && process.env.REQUIRE_PERSISTENT_DB === 'true' && process.env.NODE_ENV !== 'test') {
+  throw new Error('REQUIRE_PERSISTENT_DB=true requires an external PostgreSQL/MySQL database. SQLite demo storage cannot persist data across hosting restarts.');
+}
+
 let sequelize: Sequelize;
 
 if (useMockDb) {
@@ -39,7 +48,11 @@ if (useMockDb) {
   if (["postgres", "postgresql"].includes(process.env.DATABASE_TYPE || "") && !isPostgres) {
     throw new Error("DATABASE_TYPE=postgres requires a PostgreSQL DATABASE_URL or POSTGRES_URL.");
   }
-  const postgresCa = process.env.DATABASE_SSL_CA?.replace(/\\n/g, "\n");
+  const localCaPath = path.resolve(__dirname, '../../aiven-ca.pem');
+  const caFile = process.env.DATABASE_SSL_CA_FILE?.trim();
+  const postgresCa = process.env.DATABASE_SSL_CA?.trim().replace(/\\n/g, "\n") ||
+    (caFile ? fs.readFileSync(path.resolve(__dirname, '../..', caFile), 'utf8') :
+      isPostgres && dbUrl.includes('aivencloud') && fs.existsSync(localCaPath) ? fs.readFileSync(localCaPath, 'utf8') : undefined);
   const needsSsl =
     isProduction ||
     !!postgresCa ||

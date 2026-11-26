@@ -21,6 +21,8 @@ services:
         value: 'false'
       - key: DATABASE_TYPE
         value: postgres
+      - key: REQUIRE_PERSISTENT_DB
+        value: 'true'
       - key: DATABASE_URL
         sync: false
       - key: DATABASE_SSL_CA
