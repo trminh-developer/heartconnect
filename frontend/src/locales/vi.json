@@ -128,6 +128,18 @@
     "no_more_users_desc": "Hãy bổ sung ngày sinh, sở thích, mục tiêu hẹn hò và vị trí trong hồ sơ, hoặc điều chỉnh bộ lọc để có thêm gợi ý phù hợp.",
     "swipe_hint": "Quẹt trái để Bỏ qua • Quẹt phải để Thích"
   },
+  "calls": {
+    "chat_options": "Tùy chọn cuộc trò chuyện",
+    "title": "Cuộc gọi", "audio": "Gọi thoại", "video": "Gọi video", "incoming_audio": "Cuộc gọi thoại đến", "incoming_video": "Cuộc gọi video đến",
+    "incoming": "Cuộc gọi đến", "ringing": "Đang đổ chuông…", "waiting_offline": "Người nhận đang offline. Đang gọi…", "wait_hint": "Cuộc gọi sẽ kết thúc nếu không có người trả lời sau 45 giây.",
+    "loading": "Đang tải cuộc gọi…", "preparing": "Đang chuẩn bị…", "connecting": "Đang kết nối…", "connected": "Đã kết nối", "reconnecting": "Đang kết nối lại…",
+    "no_answer": "Không có người trả lời", "declined": "Cuộc gọi đã bị từ chối", "ended": "Cuộc gọi đã kết thúc", "accept": "Trả lời", "decline": "Từ chối", "hangup": "Kết thúc",
+    "mute": "Tắt mic", "unmute": "Bật mic", "camera_off": "Tắt camera", "camera_on": "Bật camera", "you": "Bạn", "local_video": "Camera của bạn", "remote_video": "Video người nhận",
+    "back_to_messages": "Về tin nhắn", "return_to_call": "Quay lại cuộc gọi", "enable_audio": "Nhấn để bật âm thanh",
+    "permission_denied": "Hãy cho phép truy cập microphone và camera trong trình duyệt để gọi.", "device_missing": "Không tìm thấy microphone hoặc camera cần thiết.", "device_busy": "Microphone hoặc camera đang được ứng dụng khác sử dụng.",
+    "busy_error": "Một trong hai người đang có cuộc gọi khác hoặc cuộc gọi đã hết thời gian chờ.", "connection_error": "Không thể kết nối cuộc gọi. Kiểm tra quyền thiết bị và kết nối mạng rồi thử lại.",
+    "signaling_error": "Mất kết nối với máy chủ cuộc gọi. Cuộc gọi đã dừng.", "not_found": "Không tìm thấy cuộc gọi hoặc bạn không có quyền tham gia.", "reload_ended": "Cuộc gọi đã dừng khi trang được tải lại. Hãy gọi lại từ tin nhắn."
+  },
   "search": {
     "title": "Tìm kiếm",
     "description": "Tìm tài khoản bằng username hoặc tên hiển thị.",

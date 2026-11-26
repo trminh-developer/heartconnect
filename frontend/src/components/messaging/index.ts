@@ -4,5 +4,3 @@ export * from './ChatHeader';
 export * from './MessageList';
 export * from './MessageBubble';
 export * from './MessageInput';
-
-export * from './CallModal';

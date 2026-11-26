@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { User } from '../../models';
 import Avatar from '../common/Avatar';
@@ -9,11 +9,19 @@ interface ChatHeaderProps {
   onBack?: () => void;
   onCall?: () => void;
   onVideoCall?: () => void;
+  callDisabled?: boolean;
 }
 
-export const ChatHeader: React.FC<ChatHeaderProps> = ({ user, onBack, onCall, onVideoCall }) => {
+export const ChatHeader: React.FC<ChatHeaderProps> = ({ user, onBack, onCall, onVideoCall, callDisabled }) => {
   const { t } = useTranslation();
   const { showAlert } = useAlert();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const close = (event: MouseEvent) => { if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false); };
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, []);
 
   return (
     <div className="chat-header p-3 bg-white border-bottom d-flex align-items-center gap-3 shadow-sm z-index-1">
@@ -25,7 +33,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({ user, onBack, onCall, on
       
       <Avatar src={user.avatar || ''} alt={user.firstName} size="md" isOnline={user.isOnline} />
       
-      <div className="flex-grow-1">
+      <div className="flex-grow-1" style={{ minWidth: 0 }}>
         <h6 className="mb-0 fw-bold">{user.firstName} {user.lastName}</h6>
         {user.isOnline ? (
           <small className="text-success">{t('common.online')}</small>
@@ -34,19 +42,19 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({ user, onBack, onCall, on
         )}
       </div>
 
-      <button className="btn btn-light rounded-circle text-primary me-2 d-none d-sm-block" onClick={onCall || (() => showAlert('Call feature in development', 'info'))} title="Voice Call">
+      <button className="btn btn-light rounded-circle text-primary flex-shrink-0" disabled={callDisabled || !onCall} onClick={onCall} title={t('calls.audio')} aria-label={t('calls.audio')}>
         <i className="bi bi-telephone-fill fs-5"></i>
       </button>
 
-      <button className="btn btn-light rounded-circle text-primary me-2 d-none d-sm-block" onClick={onVideoCall || (() => showAlert('Video call in development', 'info'))} title="Video Call">
+      <button className="btn btn-light rounded-circle text-primary flex-shrink-0" disabled={callDisabled || !onVideoCall} onClick={onVideoCall} title={t('calls.video')} aria-label={t('calls.video')}>
         <i className="bi bi-camera-video-fill fs-5"></i>
       </button>
 
-      <div className="dropdown">
-        <button className="btn btn-link text-muted p-2" type="button" data-bs-toggle="dropdown">
+      <div className="dropdown" ref={menuRef} onKeyDown={event => { if (event.key === 'Escape') setMenuOpen(false); }}>
+        <button className="btn btn-link text-muted p-2" type="button" aria-label={t('calls.chat_options')} aria-expanded={menuOpen} onClick={() => setMenuOpen(value => !value)}>
           <i className="bi bi-three-dots-vertical fs-5"></i>
         </button>
-        <ul className="dropdown-menu dropdown-menu-end shadow border-0" style={{ minWidth: '240px', borderRadius: '12px' }}>
+        <ul className={`dropdown-menu dropdown-menu-end shadow border-0 ${menuOpen ? 'show' : ''}`} onClick={() => setMenuOpen(false)} style={{ minWidth: '240px', borderRadius: '12px', right: 0 }}>
           <li><button className="dropdown-item py-2 fw-medium" onClick={() => showAlert(t('messages.view_profile'), 'info')}><i className="bi bi-person-circle fs-5 me-3 text-secondary"></i> {t('messages.view_profile')}</button></li>
           <li><button className="dropdown-item py-2 fw-medium" onClick={() => showAlert(t('messages.mute_notifications'), 'success')}><i className="bi bi-bell-slash fs-5 me-3 text-secondary"></i> {t('messages.mute_notifications')}</button></li>
           <li><button className="dropdown-item py-2 fw-medium" onClick={() => showAlert(t('messages.theme'), 'info')}><i className="bi bi-palette fs-5 me-3 text-secondary"></i> {t('messages.theme')}</button></li>

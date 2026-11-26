@@ -49,7 +49,8 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           zIndex: 99999, pointerEvents: 'none'
         }}>
           <div style={{
-            background: 'rgba(255,255,255,0.97)',
+            background: 'var(--hc-toast-bg)',
+            border: '1px solid var(--hc-border)',
             backdropFilter: 'blur(12px)',
             borderRadius: '24px',
             padding: '2rem 2.5rem',
@@ -66,7 +67,7 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             }}>
               <i className={'bi ' + icon} style={{ fontSize: '2.5rem', color }}></i>
             </div>
-            <p style={{ margin: 0, fontWeight: 600, fontSize: '1rem', color: '#1e293b', lineHeight: 1.5 }}>
+            <p style={{ margin: 0, fontWeight: 600, fontSize: '1rem', color: 'var(--hc-text)', lineHeight: 1.5 }}>
               {alertState.message}
             </p>
           </div>

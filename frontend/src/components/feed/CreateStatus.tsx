@@ -78,7 +78,7 @@ export const CreateStatus: React.FC<CreateStatusProps> = ({ createStatus, isUplo
             maxLength={5000}
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            style={{ resize: 'none', backgroundColor: '#f8f9fa' }}
+            style={{ resize: 'none', backgroundColor: 'var(--hc-surface-soft)' }}
           ></textarea>
         </div>
 

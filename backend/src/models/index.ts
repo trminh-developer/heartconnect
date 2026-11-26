@@ -268,6 +268,57 @@ Message.init(
   },
 );
 
+class CallSession extends Model {}
+CallSession.init({
+  id: { type: DataTypes.UUID, primaryKey: true, defaultValue: DataTypes.UUIDV4 },
+  conversation_id: { type: DataTypes.UUID, allowNull: false },
+  caller_id: { type: DataTypes.UUID, allowNull: false },
+  callee_id: { type: DataTypes.UUID, allowNull: false },
+  mode: { type: DataTypes.STRING, allowNull: false },
+  status: { type: DataTypes.STRING, allowNull: false, defaultValue: 'ringing' },
+  reason: { type: DataTypes.STRING },
+  created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+  expires_at: { type: DataTypes.DATE, allowNull: false },
+  accepted_at: { type: DataTypes.DATE },
+  ended_at: { type: DataTypes.DATE },
+  ringing_at: { type: DataTypes.DATE },
+  caller_seen_at: { type: DataTypes.DATE },
+  callee_seen_at: { type: DataTypes.DATE },
+}, { sequelize, modelName: 'CallSession', tableName: 'call_sessions', timestamps: false,
+  indexes: [{ fields: ['callee_id', 'status'] }, { fields: ['status', 'expires_at'] }] });
+CallSession.belongsTo(Conversation, { foreignKey: 'conversation_id', onDelete: 'CASCADE' });
+CallSession.belongsTo(User, { as: 'Caller', foreignKey: 'caller_id', onDelete: 'CASCADE' });
+CallSession.belongsTo(User, { as: 'Callee', foreignKey: 'callee_id', onDelete: 'CASCADE' });
+
+// A unique reservation per user prevents simultaneous calls, even across instances.
+class CallParticipant extends Model {}
+CallParticipant.init({
+  user_id: { type: DataTypes.UUID, primaryKey: true },
+  call_id: { type: DataTypes.UUID, allowNull: false },
+}, { sequelize, modelName: 'CallParticipant', tableName: 'call_participants', timestamps: false });
+CallParticipant.belongsTo(CallSession, { foreignKey: 'call_id', onDelete: 'CASCADE' });
+CallParticipant.belongsTo(User, { foreignKey: 'user_id', onDelete: 'CASCADE' });
+
+class CallSignal extends Model {}
+CallSignal.init({
+  seq: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  request_id: { type: DataTypes.UUID, unique: true, allowNull: false },
+  call_id: { type: DataTypes.UUID, allowNull: false },
+  sender_id: { type: DataTypes.UUID, allowNull: false },
+  type: { type: DataTypes.STRING, allowNull: false },
+  payload: { type: DataTypes.JSON, allowNull: false },
+}, { sequelize, modelName: 'CallSignal', tableName: 'call_signals', timestamps: false,
+  indexes: [{ fields: ['call_id', 'seq'] }] });
+CallSignal.belongsTo(CallSession, { foreignKey: 'call_id', onDelete: 'CASCADE' });
+
+class CallPresence extends Model {}
+CallPresence.init({
+  user_id: { type: DataTypes.UUID, primaryKey: true },
+  device_id: { type: DataTypes.UUID, primaryKey: true },
+  seen_at: { type: DataTypes.DATE, allowNull: false },
+}, { sequelize, modelName: 'CallPresence', tableName: 'call_presence', timestamps: false });
+CallPresence.belongsTo(User, { foreignKey: 'user_id', onDelete: 'CASCADE' });
+
 class Notification extends Model {}
 Notification.init(
   {
@@ -553,6 +604,10 @@ export {
   Match,
   Conversation,
   Message,
+  CallSession,
+  CallParticipant,
+  CallSignal,
+  CallPresence,
   Notification,
   Status,
   Story,

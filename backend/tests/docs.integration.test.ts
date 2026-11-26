@@ -59,16 +59,18 @@ test('Swagger loads local assets and the OpenAPI document even while the databas
 
 const canonical = (path: string) => path.replace(/:[^/]+|\{[^}]+\}/g, '{}');
 test('the OpenAPI operations cover every mounted business route without ambiguous path templates', async () => {
-  const [{ initAuthModule }, { initPaymentModule }, users, matches, messages, feed, notifications, admin, stories] = await Promise.all([
+  const [{ initAuthModule }, { initPaymentModule }, users, matches, messages, feed, notifications, admin, stories, calls] = await Promise.all([
     import('../src/features/auth/AuthModule'), import('../src/features/payment/di/PaymentModule'),
     import('../src/features/user/UserModule'), import('../src/features/match/MatchModule'),
     import('../src/features/message/MessageModule'), import('../src/features/feed/FeedModule'),
     import('../src/features/notification/NotificationModule'), import('../src/features/admin/AdminModule'), import('../src/features/story/StoryModule'),
+    import('../src/features/call/CallModule'),
   ]);
   const actual = new Set<string>();
   for (const [prefix, router] of [
     ['/auth', initAuthModule()], ['/payments', initPaymentModule()],
     ['', users.default], ['', matches.default], ['', messages.default], ['', feed.default], ['', notifications.default], ['', admin.default], ['', stories.default],
+    ['', calls.default],
   ] as [string, Router][]) {
     for (const layer of router.stack) {
       if (!layer.route) continue;

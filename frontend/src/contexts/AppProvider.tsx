@@ -6,12 +6,13 @@ import { ChatProvider } from './ChatContext';
 import { NotificationProvider } from './NotificationContext';
 import { AlertProvider } from './AlertContext';
 import { useAuth } from '../hooks/useAuth';
+import { CallProvider } from './CallContext';
 
 function AccountProviders({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   // Clear account-specific state and restart polling when the signed-in identity changes.
   return <MatchProvider key={user?.id || 'guest'}>
-    <ChatProvider><NotificationProvider>{children}</NotificationProvider></ChatProvider>
+    <ChatProvider><NotificationProvider><CallProvider>{children}</CallProvider></NotificationProvider></ChatProvider>
   </MatchProvider>;
 }
 

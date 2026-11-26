@@ -6,6 +6,7 @@ const checks = [
   ['GET', '/api/health', 200], ['GET', '/api/users/recommended?limit=1', 200],
   ['GET', '/api/users/search?q=smoke-deployment-check', 200], ['GET', '/api/feed/all?limit=1', 200],
   ['GET', '/api/payments/methods', 200],
+  ['GET', '/api/calls/config', 401], ['GET', '/api/calls/incoming', 401], ['POST', '/api/calls', 401],
   ['GET', '/api/stories', 401], ['POST', '/api/stories', 401],
   ['GET', '/api/users/discover', 401], ['PUT', '/api/users/smoke-test', 401],
   ['POST', '/api/users/report', 401], ['POST', '/api/users/smoke-test/verification', 401],

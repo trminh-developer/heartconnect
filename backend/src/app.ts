@@ -16,6 +16,7 @@ import feedModule from './features/feed/FeedModule';
 import storyModule from './features/story/StoryModule';
 import notificationModule from './features/notification/NotificationModule';
 import adminModule from './features/admin/AdminModule';
+import callModule from './features/call/CallModule';
 import { createCorsOptions } from './config/cors';
 import { createDocsRouter } from './docs/router';
 import sequelize from './config/db';
@@ -57,7 +58,7 @@ export function createApp(isReady = () => true) {
   });
   app.use('/api/payments', initPaymentModule());
   app.use('/api/auth', authLimiter, initAuthModule());
-  app.use(userModule, matchModule, messageModule, feedModule, storyModule, notificationModule, adminModule);
+  app.use(userModule, matchModule, messageModule, feedModule, storyModule, notificationModule, adminModule, callModule);
   app.use('/api', (_req, res) => { res.status(404).json({ error: 'API route not found' }); });
   if (process.env.SENTRY_DSN && process.env.NODE_ENV !== 'test') Sentry.setupExpressErrorHandler(app);
   const handleError: ErrorRequestHandler = (error, _req, res, _next) => {

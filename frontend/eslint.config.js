@@ -38,7 +38,7 @@ export default defineConfig([
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
       // Context providers and shared UI helpers intentionally export hooks with components.
-      'react-refresh/only-export-components': ['warn', { allowConstantExport: true, allowExportNames: ['useTheme', 'useAlert', 'useAdmin', 'AuthContext', 'ChatContext', 'MatchContext', 'NotificationContext', 'AlertContext', 'number', 'money', 'date', 'personName', 'useAdminAction'] }],
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true, allowExportNames: ['useTheme', 'useAlert', 'useAdmin', 'AuthContext', 'ChatContext', 'CallContext', 'MatchContext', 'NotificationContext', 'AlertContext', 'number', 'money', 'date', 'personName', 'useAdminAction'] }],
     },
   },
 ])

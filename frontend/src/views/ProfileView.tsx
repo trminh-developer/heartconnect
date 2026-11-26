@@ -391,7 +391,7 @@ const ProfileView = () => {
                 <span 
                   key={interest.id} 
                   className="interest-badge interest-badge-light text-dark border d-flex align-items-center gap-1" 
-                  style={{ cursor: 'pointer', background: '#f8f9fa' }}
+                  style={{ cursor: 'pointer', background: 'var(--hc-surface-soft)' }}
                   onClick={() => handleAddPredefinedInterest(interest)}
                 >
                   <i className={`bi ${interest.icon} text-primary`}></i> {interest.name}

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useLayoutEffect, ReactNode } from 'react';
 
 export type Theme = 'light' | 'dark';
 
@@ -23,16 +23,17 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const applyTheme = (currentTheme: Theme) => {
     localStorage.setItem('hc_theme', currentTheme);
+    document.documentElement.style.backgroundColor = 'var(--hc-body-bg)';
     if (currentTheme === 'dark') {
       document.documentElement.setAttribute('data-bs-theme', 'dark');
       document.body.classList.add('dark-mode');
     } else {
-      document.documentElement.removeAttribute('data-bs-theme');
+      document.documentElement.setAttribute('data-bs-theme', 'light');
       document.body.classList.remove('dark-mode');
     }
   };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     applyTheme(theme);
   }, [theme]);
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ConversationList, ChatHeader, MessageList, MessageInput, CallModal } from '../components/messaging';
+import { ConversationList, ChatHeader, MessageList, MessageInput } from '../components/messaging';
+import { useCall } from '../hooks/useCall';
 import { EmptyState, Loading } from '../components/common';
 import { useChat } from '../hooks/useChat';
 import { useAuth } from '../hooks/useAuth';
@@ -11,9 +12,7 @@ const MessagesView = () => {
   const { user } = useAuth();
   const [showList, setShowList] = useState(true);
   
-  // Call modal states
-  const [showCallModal, setShowCallModal] = useState(false);
-  const [isVideoCall, setIsVideoCall] = useState(false);
+  const calling = useCall();
 
   React.useEffect(() => {
     loadConversations();
@@ -68,9 +67,11 @@ const MessagesView = () => {
               <ChatHeader 
                 user={activePartner} 
                 onBack={() => setShowList(true)}
-                onCall={() => { setIsVideoCall(false); setShowCallModal(true); }}
-                onVideoCall={() => { setIsVideoCall(true); setShowCallModal(true); }}
+                onCall={() => void calling.start(activeConversation.id, 'audio')}
+                onVideoCall={() => void calling.start(activeConversation.id, 'video')}
+                callDisabled={calling.busy}
               />
+              {calling.error && <p className="call-error px-3" role="alert">{t(calling.error)}</p>}
               <MessageList messages={messages} currentUserId={user?.id || ''} />
               <MessageInput onSend={(content) => {
                 if (content.startsWith('[IMAGE]')) {
@@ -88,13 +89,6 @@ const MessagesView = () => {
         </div>
       </div>
       
-      {showCallModal && activePartner && (
-        <CallModal 
-          user={activePartner} 
-          isVideo={isVideoCall} 
-          onClose={() => setShowCallModal(false)} 
-        />
-      )}
     </div>
   );
 };

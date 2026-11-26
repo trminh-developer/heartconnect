@@ -89,6 +89,14 @@ npm run ci
 
 Tham khảo: [Vercel for GitHub](https://vercel.com/docs/git/vercel-for-github), [Vercel Build Configuration](https://vercel.com/docs/builds/configure-a-build).
 
+## Gọi thoại và video
+
+- Mở Tin nhắn, chọn cuộc trò chuyện rồi bấm Gọi thoại/Gọi video. Hai tài khoản đăng nhập độc lập dùng cùng URL `/call/:callId` khi người nhận trả lời. Chỉ người trong cuộc trò chuyện hiện có được gọi và trao đổi tín hiệu; kiểm tra tài khoản bị khóa, chặn và máy bận ở backend.
+- Cuộc gọi dùng microphone/camera thật qua WebRTC. Chỉ hiện đã kết nối khi peer connection kết nối thành công. Tắt mic/camera điều khiển media track; kết thúc ở một bên dừng cả hai bên và giải phóng thiết bị. Tải lại trang kết thúc kết nối cũ, có thể gọi lại từ Tin nhắn.
+- Ứng dụng gửi heartbeat mỗi 10 giây theo từng tab. Offline được xác định sau tối đa 35 giây không có heartbeat; đóng tab gửi yêu cầu xóa presence. Người gọi vẫn nghe tiếng tút khi người nhận offline; người online nhận hộp thoại và chuông. Không trả lời trong 45 giây thì cuộc gọi chuyển sang không có người trả lời. Trình duyệt có thể yêu cầu một lần chạm để cho phép phát chuông.
+- Backend đã có các API yêu cầu đăng nhập: `POST /api/calls`, `GET /api/calls/incoming`, `GET /api/calls/:callId`, `POST /api/calls/:callId/accept`, `POST /api/calls/:callId/end`, `POST /api/calls/:callId/signals`, `POST/DELETE /api/calls/presence`, `GET /api/calls/config`. Xem nhóm **Calls** tại `/docs`; SDP/ICE chỉ cấp cho hai bên và bị xóa khi kết thúc.
+- Trình duyệt cần HTTPS (hoặc localhost) và quyền microphone/camera. STUN được cấu hình sẵn. Để nối qua các mạng di động/NAT/firewall hạn chế, cung cấp relay TURN của bạn bằng `TURN_URLS` và `TURN_SHARED_SECRET` ở backend hosting; API cấp thông tin xác thực một giờ, shared secret không gửi xuống client. Có thể dùng `TURN_USERNAME`/`TURN_CREDENTIAL` từ nhà cung cấp thay cho shared secret. Không cấu hình các khóa này trong `VITE_*`. [Hướng dẫn kết nối WebRTC](https://webrtc.org/getting-started/peer-connections).
+
 ## 🌟 Tác Giả
 
 - Phát triển bởi: **MQV**

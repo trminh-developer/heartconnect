@@ -160,6 +160,38 @@ operation('post', '/messages', 'Gửi tin nhắn', {
 });
 operation('put', '/messages/{conversationId}/read', 'Đánh dấu cuộc hội thoại đã đọc', { tag: 'Messages', errors: [404] });
 for (const method of ['put', 'post']) operation(method, '/messages/{messageId}/recall', 'Thu hồi tin nhắn đã gửi', { tag: 'Messages', errors: [404] });
+
+const callSnapshot = object({
+  id: string(), conversationId: string(), callerId: string(), calleeId: string(), mode: enumeration('audio', 'video'),
+  status: enumeration('ringing', 'accepted', 'ended', 'missed', 'declined'), reason: string(), calleeOnline: boolean,
+  createdAt: dateTime, expiresAt: dateTime, acceptedAt: dateTime, endedAt: dateTime, ringingAt: dateTime,
+  peer: object({ id: string(), username: string(), first_name: string(), last_name: string(), avatar: string() }),
+});
+operation('post', '/calls/presence', 'Cập nhật trạng thái sẵn sàng nhận cuộc gọi', {
+  tag: 'Calls', body: object({ deviceId: { type: 'string', format: 'uuid' } }, ['deviceId']),
+  description: 'Gửi heartbeat mỗi 10 giây cho từng tab/thiết bị. Người dùng online khi có heartbeat trong 35 giây; không dùng cờ online của dữ liệu mẫu.',
+});
+operation('delete', '/calls/presence', 'Ngừng nhận cuộc gọi trên tab/thiết bị này', { tag: 'Calls', body: object({ deviceId: { type: 'string', format: 'uuid' } }, ['deviceId']) });
+operation('get', '/calls/config', 'Cấu hình ICE cho WebRTC', {
+  tag: 'Calls', result: object({ iceServers: array(object({ urls: array(string()), username: string(), credential: string() })), relayConfigured: boolean }),
+  description: 'STUN mặc định. Khi cấu hình TURN_SHARED_SECRET, thông tin xác thực TURN có hiệu lực một giờ được cấp cho tài khoản đang đăng nhập. Không trả shared secret.',
+});
+operation('get', '/calls/incoming', 'Nhận cuộc gọi đến của chính mình', { tag: 'Calls', result: object({ call: { ...callSnapshot, nullable: true } }),
+  description: 'Poll khoảng 2,5 giây khi mở ứng dụng. Chỉ cuộc gọi thật giữa hai người trong cuộc trò chuyện hiện có được trả về.' });
+operation('post', '/calls', 'Tạo cuộc gọi thoại hoặc video', { tag: 'Calls', status: 201, errors: [404, 409], result: callSnapshot,
+  body: object({ id: { type: 'string', format: 'uuid' }, conversationId: string(), mode: enumeration('audio', 'video') }, ['id', 'conversationId', 'mode']),
+  description: 'ID do client tạo giúp tránh gọi trùng khi thử lại. Caller lấy từ phiên đăng nhập. Chỉ hai người trong cuộc trò chuyện được tham gia; kiểm tra khóa/chặn và máy bận. Vẫn tạo cuộc gọi khi người nhận offline và hết hạn sau 45 giây nếu không trả lời.',
+});
+operation('get', '/calls/{callId}', 'Trạng thái cuộc gọi và tín hiệu từ người còn lại', { tag: 'Calls', errors: [400, 404],
+  parameters: [query('after', integer(0, 2147483647), 'seq cuối đã xử lý, mặc định 0.'), query('details', enumeration('1'), 'Trả thêm hồ sơ tối thiểu của người còn lại.')],
+  result: object({ call: callSnapshot, signals: array(object({ seq: integer(), type: enumeration('offer', 'answer', 'candidate'), payload: { type: 'object' } })) }),
+  description: 'Chỉ thành viên cuộc gọi được đọc tín hiệu. Poll mỗi giây để giữ kết nối báo hiệu; ngắt khi một bên mất heartbeat trong 45 giây. SDP/ICE bị xóa khi kết thúc.',
+});
+operation('post', '/calls/{callId}/accept', 'Người nhận chấp nhận cuộc gọi', { tag: 'Calls', result: callSnapshot, errors: [404, 409], description: 'Chỉ callee được chấp nhận cuộc gọi chưa hết hạn. Client yêu cầu quyền thiết bị trước khi gọi API này; accepted chưa có nghĩa là media đã kết nối.' });
+operation('post', '/calls/{callId}/end', 'Kết thúc hoặc từ chối cuộc gọi', { tag: 'Calls', result: callSnapshot, errors: [404, 409], body: object({ reason: enumeration('hangup', 'declined', 'failed') }), description: 'declined chỉ dành cho người nhận khi chưa trả lời. Cả hai bên được kết thúc; thao tác lặp lại vẫn an toàn.' });
+operation('post', '/calls/{callId}/signals', 'Gửi SDP hoặc ICE đến người còn lại', { tag: 'Calls', errors: [404, 409, 429], body: object({ id: { type: 'string', format: 'uuid' }, type: enumeration('offer', 'answer', 'candidate'), payload: { type: 'object', description: 'RTCSessionDescriptionInit cho offer/answer, RTCIceCandidateInit cho candidate.' } }, ['id', 'type', 'payload']),
+  description: 'Chỉ gửi sau khi accepted. Caller gửi offer, callee gửi answer; ICE từ cả hai. ID tín hiệu chống ghi trùng khi retry, tối đa 512 tín hiệu/cuộc gọi. Camera/microphone được truyền trực tiếp qua WebRTC, không tải media lên API.',
+});
 for (const path of ['/messages/{id}', '/messages/{messageId}/for-me']) operation('delete', path, 'Xóa tin nhắn ở phía mình', { tag: 'Messages', errors: [404], description: 'ID là ID tin nhắn cần xóa.' });
 
 operation('get', '/feed/{id}', 'Bảng tin hoặc bài viết của một người', {
@@ -281,7 +313,7 @@ export const openApiDocument = {
   servers: [{ url: '/api', description: 'Backend đang mở trang tài liệu này' }],
   tags: [
     ['Auth', 'Tài khoản và phiên đăng nhập'], ['Users', 'Hồ sơ và xác thực danh tính'],
-    ['Discover', 'Khám phá và ghi nhận lượt hiển thị'], ['Matches', 'Thích, bỏ qua và tương hợp'], ['Messages', 'Hội thoại và tin nhắn'],
+    ['Discover', 'Khám phá và ghi nhận lượt hiển thị'], ['Matches', 'Thích, bỏ qua và tương hợp'], ['Messages', 'Hội thoại và tin nhắn'], ['Calls', 'Gọi thoại, video và báo hiệu WebRTC'],
     ['Feed', 'Bài viết và bình luận'], ['Stories', 'Tin văn bản, ảnh và video trong 24 giờ'], ['Notifications', 'Thông báo'], ['Payments', 'Thanh toán Premium và callback'], ['Admin', 'Quản trị và kiểm duyệt'],
   ].map(([name, description]) => ({ name, description })),
   paths,

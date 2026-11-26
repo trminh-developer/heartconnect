@@ -13,6 +13,7 @@ const SearchView = lazy(() => import('../views/SearchView'));
 const MatchesView = lazy(() => import('../views/MatchesView'));
 const LikesView = lazy(() => import('../views/LikesView'));
 const MessagesView = lazy(() => import('../views/MessagesView'));
+const CallView = lazy(() => import('../views/CallView'));
 const ProfileView = lazy(() => import('../views/ProfileView'));
 const NotificationsView = lazy(() => import('../views/NotificationsView'));
 const SettingsView = lazy(() => import('../views/SettingsView'));
@@ -59,6 +60,9 @@ const AppRoutes = () => (
       <Route path="/login" element={<AuthRoute><LoginView /></AuthRoute>} />
       <Route path="/register" element={<AuthRoute><RegisterView /></AuthRoute>} />
       <Route path="/forgot-password" element={<AuthRoute><ForgotPasswordView /></AuthRoute>} />
+      <Route element={<ProtectedRoute />}>
+        <Route path="/call/:callId" element={<CallView />} />
+      </Route>
       
       {/* Admin Login Route */}
       <Route path="/admin/login" element={<AdminLoginView />} />

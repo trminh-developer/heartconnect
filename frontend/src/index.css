@@ -56,6 +56,12 @@ html, body {
   --hc-text: #2d2d3a;
   --hc-text-secondary: #6c6c80;
   --hc-text-muted: #9e9eb3;
+  --hc-surface-soft: #f0f0f6;
+  --hc-toast-bg: rgba(255, 255, 255, .97);
+  --bs-body-bg: var(--hc-body-bg);
+  --bs-body-color: var(--hc-text);
+  --bs-secondary-color: var(--hc-text-secondary);
+  --bs-border-color: var(--hc-border);
 
   /* Shadows */
   --hc-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
@@ -94,7 +100,16 @@ body.dark-mode {
   --hc-border: #2c2c3e;
   --hc-text: #f1f1f5;
   --hc-text-secondary: #9e9eb3;
-  --hc-text-muted: #727288;
+  --hc-text-muted: #a0a0b4;
+  --hc-surface-soft: #28283c;
+  --hc-toast-bg: rgba(30, 30, 45, .97);
+  --bs-body-bg: var(--hc-body-bg);
+  --bs-body-color: var(--hc-text);
+  --bs-secondary-color: var(--hc-text-secondary);
+  --bs-tertiary-color: var(--hc-text-muted);
+  --bs-secondary-bg: var(--hc-surface-soft);
+  --bs-tertiary-bg: var(--hc-card-bg);
+  --bs-border-color: var(--hc-border);
   --hc-sidebar-bg: #161626;
   --hc-sidebar-text: #8e8ea6;
   --hc-sidebar-active: #ffffff;
@@ -652,9 +667,9 @@ a:hover {
 }
 
 .action-btn-dislike {
-  background: white;
+  background: var(--hc-card-bg);
   color: var(--hc-dislike);
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--hc-border);
 }
 
 .action-btn-dislike:hover {
@@ -674,7 +689,7 @@ a:hover {
 }
 
 .action-btn-superlike {
-  background: white;
+  background: var(--hc-card-bg);
   color: var(--hc-superlike);
   border: 2px solid var(--hc-superlike);
 }
@@ -1958,9 +1973,17 @@ div.user-avatar {
 .toggle-switch input:checked + .toggle-slider::before {
   transform: translateX(20px);
 }
-.hover-bg-light:hover { background-color: #f8f9fa !important; }
+.hover-bg-light:hover, .hover-bg-light:focus-visible,
+.hover-bg-white:hover, .hover-bg-white:focus-visible { background-color: var(--hc-surface-soft) !important; }
 
-.hover-bg-light:hover { background-color: #f8f9fa !important; }
+.app-layout { background-color: var(--hc-body-bg) !important; }
+.card, .hc-card { --bs-card-bg: var(--hc-card-bg); --bs-card-color: var(--hc-text); --bs-card-border-color: var(--hc-border); }
+.form-control::placeholder { color: var(--hc-text-muted); opacity: 1; }
+.form-control:disabled, .form-select:disabled { background-color: var(--hc-surface-soft); color: var(--hc-text-secondary); }
+.text-muted { color: var(--hc-text-secondary) !important; }
+.payment-method-logo { background: var(--hc-card-bg); border-color: var(--hc-border); }
+.bank-transfer-details > div { border-color: var(--hc-border); }
+.bank-transfer-details dt { color: var(--hc-text-secondary); }
 
 
 

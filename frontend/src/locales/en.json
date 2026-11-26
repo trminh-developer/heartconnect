@@ -128,6 +128,18 @@
     "no_more_users_desc": "Add your birthday, interests, relationship goal and location to your profile, or adjust your preferences for more suitable recommendations.",
     "swipe_hint": "Swipe Left to Pass • Swipe Right to Like"
   },
+  "calls": {
+    "chat_options": "Conversation options",
+    "title": "Call", "audio": "Voice call", "video": "Video call", "incoming_audio": "Incoming voice call", "incoming_video": "Incoming video call",
+    "incoming": "Incoming call", "ringing": "Ringing…", "waiting_offline": "The recipient is offline. Calling…", "wait_hint": "The call ends after 45 seconds if nobody answers.",
+    "loading": "Loading call…", "preparing": "Preparing…", "connecting": "Connecting…", "connected": "Connected", "reconnecting": "Reconnecting…",
+    "no_answer": "No answer", "declined": "Call declined", "ended": "Call ended", "accept": "Answer", "decline": "Decline", "hangup": "End call",
+    "mute": "Mute", "unmute": "Unmute", "camera_off": "Camera off", "camera_on": "Camera on", "you": "You", "local_video": "Your camera", "remote_video": "Remote video",
+    "back_to_messages": "Back to messages", "return_to_call": "Return to call", "enable_audio": "Tap to enable audio",
+    "permission_denied": "Allow microphone and camera access in your browser to make a call.", "device_missing": "A required microphone or camera could not be found.", "device_busy": "Another application is using your microphone or camera.",
+    "busy_error": "One participant is already in a call, or the call has timed out.", "connection_error": "Could not connect the call. Check device permissions and your network, then try again.",
+    "signaling_error": "Connection to the call server was lost. The call has stopped.", "not_found": "This call does not exist or you cannot join it.", "reload_ended": "Reloading ended the previous connection. Start a new call from messages."
+  },
   "search": {
     "title": "Search",
     "description": "Find an account by username or display name.",
