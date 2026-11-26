@@ -61,42 +61,31 @@ export const Navbar: React.FC = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
-    if (searchQuery.trim().length > 0) {
-      const fetchSuggestions = async () => {
-        try {
-          const allUsers = await userService.getUsers();
-          const q = searchQuery.toLowerCase().trim();
-          const filtered = allUsers.filter(u => 
-            (u.username || '').toLowerCase().includes(q) || 
-            (u.firstName || '').toLowerCase().includes(q) || 
-            (u.lastName || '').toLowerCase().includes(q)
-          ).slice(0, 5);
-          setSuggestions(filtered);
-          setShowSuggestions(true);
-        } catch (err) {
-          console.error(err);
-        }
-      };
-      
-      const timer = setTimeout(() => {
-        fetchSuggestions();
-      }, 300); // debounce 300ms
-      return () => clearTimeout(timer);
-    } else {
-      setSuggestions([]);
-      setShowSuggestions(false);
-    }
+    const controller = new AbortController();
+    setSuggestions([]);
+    if (!searchQuery.trim()) return () => controller.abort();
+    const timer = setTimeout(async () => {
+      try {
+        const users = await userService.searchUsers(searchQuery.trim(), { limit: 5 }, controller.signal);
+        if (!controller.signal.aborted) setSuggestions(users);
+      } catch {
+        if (!controller.signal.aborted) setSuggestions([]);
+      }
+    }, 300);
+    return () => { clearTimeout(timer); controller.abort(); };
   }, [searchQuery]);
 
   const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') setShowSuggestions(false);
     if (e.key === 'Enter' && searchQuery.trim()) {
+      e.preventDefault();
       navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
       setShowSuggestions(false);
     }
   };
 
   const handleSuggestionClick = (username: string) => {
-    navigate(`/profile/${username}`);
+    navigate(`/profile/${encodeURIComponent(username)}`);
     setSearchQuery('');
     setShowSuggestions(false);
   };
@@ -108,15 +97,15 @@ export const Navbar: React.FC = () => {
         <span className="fw-bold fs-4 text-dark d-none d-sm-block">HeartConnect</span>
       </Link>
 
-      <div ref={searchContainerRef} className="navbar-search position-relative d-none d-md-flex align-items-center bg-light rounded-pill px-3 py-2 flex-grow-1 mx-4" style={{ maxWidth: '400px' }}>
-          <i className="bi bi-search text-muted me-2"></i>
+      <div ref={searchContainerRef} className="navbar-search position-relative d-none d-md-block flex-grow-1 mx-4" style={{ maxWidth: '400px' }}>
+          <i className="bi bi-search" aria-hidden="true"></i>
           <input 
-            type="text" 
-            className="border-0 bg-transparent flex-grow-1 outline-none" 
-            placeholder={t('nav.search_placeholder')} 
-            style={{ outline: 'none' }}
+            type="search"
+            aria-label={t('common.search')}
+            maxLength={150}
+            placeholder={t('search.keyword_placeholder')}
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(!!e.target.value.trim()); }}
             onKeyDown={handleSearch}
             onFocus={() => searchQuery.trim().length > 0 && setShowSuggestions(true)}
           />
@@ -125,14 +114,16 @@ export const Navbar: React.FC = () => {
             <div className="position-absolute bg-white rounded shadow-sm border w-100" style={{ top: '110%', left: 0, zIndex: 1050, overflow: 'hidden' }}>
               <ul className="list-unstyled m-0">
                 {suggestions.map((u) => (
-                  <li key={u.id} className="p-2 border-bottom hover-bg-light cursor-pointer" style={{ cursor: 'pointer' }} onClick={() => handleSuggestionClick(u.username || u.id)}>
-                    <div className="d-flex align-items-center gap-2">
-                      <Avatar src={u.avatar || ''} alt={u.firstName} size="sm" isOnline={u.isOnline} />
-                      <div className="d-flex flex-column">
-                        <span className="fw-medium text-dark" style={{ fontSize: '14px' }}>{u.firstName} {u.lastName}<UserBadge user={u} /></span>
-                        <span className="text-muted" style={{ fontSize: '12px' }}>@{u.username}</span>
+                  <li key={u.id}>
+                    <button type="button" className="navbar-search-suggestion p-2 border-bottom text-start w-100" onClick={() => handleSuggestionClick(u.username || u.id)}>
+                      <div className="d-flex align-items-center gap-2">
+                        <Avatar src={u.avatar || ''} alt={u.firstName} size="sm" isOnline={u.isOnline} />
+                        <div className="d-flex flex-column">
+                          <span className="fw-medium text-dark" style={{ fontSize: '14px' }}>{u.firstName} {u.lastName}<UserBadge user={u} /></span>
+                          <span className="text-muted" style={{ fontSize: '12px' }}>@{u.username}</span>
+                        </div>
                       </div>
-                    </div>
+                    </button>
                   </li>
                 ))}
               </ul>

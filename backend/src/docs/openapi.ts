@@ -107,7 +107,19 @@ operation('get', '/users/nearby', 'Danh sách hồ sơ gần đây', {
   tag: 'Users', auth: 'public', result: profileList,
   description: 'Hiện trả tối đa 20 hồ sơ công khai; endpoint này chưa lọc theo tọa độ. Dùng Discover để áp dụng tùy chọn khoảng cách.',
 });
-operation('get', '/users/search', 'Tìm hồ sơ theo từ khóa', { tag: 'Users', auth: 'public', parameters: [query('q', { type: 'string', maxLength: 150 }, 'Tìm theo username, họ, tên hoặc tiểu sử.')], result: profileList, errors: [400] });
+operation('get', '/users/search', 'Tìm hồ sơ theo từ khóa và bộ lọc', {
+  tag: 'Users', auth: 'public', result: profileList, errors: [400],
+  description: 'Kết hợp các bộ lọc trước khi phân trang. Kết quả được sắp xếp ổn định theo username và ID. Bỏ qua bộ lọc tuổi để tìm cả hồ sơ chưa có ngày sinh.',
+  parameters: [
+    query('q', { type: 'string', maxLength: 150 }, 'Tìm theo username (có thể bắt đầu bằng @) hoặc họ tên, không phân biệt hoa thường.'),
+    query('gender', { ...enumeration('all', 'male', 'female', 'other'), default: 'all' }),
+    query('ageMin', integer(18, 100), 'Tuổi tối thiểu (tính cả tuổi này), không lớn hơn ageMax.'),
+    query('ageMax', integer(18, 100), 'Tuổi tối đa (tính cả tuổi này).'),
+    query('onlineStatus', { ...enumeration('all', 'online', 'offline'), default: 'all' }),
+    query('limit', { ...integer(1, 50), default: 50 }),
+    query('offset', { ...integer(0, 1000000), default: 0 }),
+  ],
+});
 operation('get', '/users/username/{username}', 'Xem hồ sơ theo username', { tag: 'Users', auth: 'optional', result: ref('Profile'), errors: [404] });
 operation('get', '/users/{id}', 'Xem hồ sơ theo ID', { tag: 'Users', auth: 'optional', result: ref('Profile'), errors: [404] });
 operation('put', '/users/{id}', 'Cập nhật hồ sơ và tùy chọn', {

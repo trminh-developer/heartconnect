@@ -5,6 +5,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import * as Sentry from '@sentry/react';
 import './i18n';
 import './index.css';
+import 'bootstrap-icons/font/bootstrap-icons.css';
 
 // Initialize Sentry for Error Tracking (Checklist #20)
 if (import.meta.env.VITE_SENTRY_DSN) {

@@ -10,6 +10,7 @@ import { ownProfile, profileIncludes, publicProfile } from '../match/profiles';
 import { datingError } from '../match/swipes';
 import { ALGORITHM_VERSION, interestKey } from '../match/compatibility';
 import { datingTransaction, lockPair } from '../match/transactions';
+import { findSearchUsers } from './search';
 
 export const getUserByUsername = async (req: AuthRequest, res: Response) => {
   try {
@@ -72,14 +73,10 @@ export const getNearbyUsers = async (req: Request, res: Response) => {
 
 export const searchUsers = async (req: Request, res: Response) => {
   try {
-    const q = z.string().trim().max(150).parse(req.query.q ?? '');
-    const users = await User.findAll({
-      where: { status: 'ACTIVE', role: 'USER', ...(q ? { [Op.or]: ['username', 'first_name', 'last_name', 'bio'].map(field => ({ [field]: { [Op.like]: `%${q}%` } })) } : {}) },
-      limit: 50, include: profileIncludes(), order: [['username', 'ASC']],
-    });
+    const users = await findSearchUsers(req.query);
     return res.json(users.map(publicProfile));
   } catch (error: any) {
-    if (error instanceof z.ZodError) return res.status(400).json({ error: 'Từ khóa tìm kiếm không hợp lệ.' });
+    if (error instanceof z.ZodError) return res.status(400).json({ error: 'Từ khóa hoặc bộ lọc tìm kiếm không hợp lệ.' });
     console.error(error);
     return res
       .status(500)

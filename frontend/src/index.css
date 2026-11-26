@@ -355,6 +355,7 @@ a:hover {
 
 .navbar-search {
   position: relative;
+  min-width: 0;
   max-width: 320px;
   flex: 1;
   margin: 0 24px;
@@ -367,6 +368,7 @@ a:hover {
   border-radius: var(--hc-radius-pill);
   background: var(--hc-body-bg);
   font-size: 13px;
+  color: var(--hc-text);
   transition: var(--hc-transition);
   outline: none;
 }
@@ -376,13 +378,19 @@ a:hover {
   box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.15);
 }
 
-.navbar-search i {
+.navbar-search > i {
   position: absolute;
   left: 14px;
   top: 50%;
   transform: translateY(-50%);
   color: var(--hc-text-muted);
+  pointer-events: none;
 }
+
+.navbar-search-suggestion { border: 0; background: var(--hc-card-bg); color: var(--hc-text); }
+.navbar-search-suggestion:hover, .navbar-search-suggestion:focus-visible { background: var(--hc-body-bg); }
+.navbar-search-suggestion .d-flex, .navbar-search-suggestion .d-flex > div { min-width: 0; }
+.navbar-search-suggestion span { overflow-wrap: anywhere; }
 
 .navbar-actions {
   display: flex;

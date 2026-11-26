@@ -17,19 +17,29 @@ interface UserCardProps {
 export const UserCard: React.FC<UserCardProps> = ({ user, onLike, onMessage, onClick }) => {
   const { t } = useTranslation();
   const age = calculateAge(user.dateOfBirth);
+  const name = [user.firstName || user.username, user.lastName].filter(Boolean).join(' ');
+  const location = [user.location?.city, user.location?.country].filter(Boolean).join(', ');
 
   return (
-    <div className="hc-card h-100 cursor-pointer shadow-sm border-0 bg-white rounded-3 overflow-hidden" onClick={onClick}>
+    <div className="hc-card h-100 cursor-pointer shadow-sm border-0 bg-white rounded-3 overflow-hidden" onClick={onClick}
+      role={onClick ? 'button' : undefined} tabIndex={onClick ? 0 : undefined}
+      onKeyDown={event => {
+        if (onClick && event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+          event.preventDefault();
+          onClick();
+        }
+      }}>
       <div className="hc-card-body p-4 d-flex flex-column align-items-center text-center">
         <Avatar src={user.avatar || ''} alt={(user.firstName || user.username)} size="xl" isOnline={user.isOnline} className="mb-3 shadow-sm" />
         
         <h5 className="mb-1 fw-bold">
-          {(user.firstName || user.username)} {user.lastName}, {age}
+          {name}{typeof age === 'number' ? `, ${age}` : ''}
           <UserBadge user={user} />
         </h5>
+        {user.username && <p className="text-muted small mb-2 user-card-username">@{user.username}</p>}
         
         <p className="text-muted small mb-2 d-flex align-items-center gap-1">
-          <i className="bi bi-geo-alt"></i> {user.location?.city}, {user.location?.country}
+          <i className="bi bi-geo-alt" aria-hidden="true"></i> {location || t('discover.location_unknown')}
         </p>
         
         {user.profession && (

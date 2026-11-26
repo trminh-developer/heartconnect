@@ -53,9 +53,18 @@ export const getNearbyUsers = async (currentUserId: string, limit = 10, maxDista
   return res.data.map ? res.data.map(mapUser) : mapUser(res.data);
 };
 
-export const searchUsers = async (query: string): Promise<User[]> => {
-  const res = await apiClient.get('/users/search', { params: { q: query } });
-  return res.data.map ? res.data.map(mapUser) : mapUser(res.data);
+export interface UserSearchFilters {
+  gender?: string;
+  ageMin?: number;
+  ageMax?: number;
+  onlineStatus?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export const searchUsers = async (query: string, filters: UserSearchFilters = {}, signal?: AbortSignal): Promise<User[]> => {
+  const res = await apiClient.get('/users/search', { params: { q: query, ...filters }, signal });
+  return res.data.map(mapUser);
 };
 
 export const blockUser = async (blockerId: string, blockedId: string): Promise<void> => {
