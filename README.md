@@ -89,6 +89,14 @@ npm run ci
 
 Tham khảo: [Vercel for GitHub](https://vercel.com/docs/git/vercel-for-github), [Vercel Build Configuration](https://vercel.com/docs/builds/configure-a-build).
 
+## Lưu hồ sơ và database production
+
+- Website Vercel gửi `/api` tới service Render `heartconnect-qa29`. Các biến database phải được cấu hình trên **service backend Render**; `backend/.env.local` chỉ áp dụng ở máy phát triển, còn `VITE_*` không được chứa thông tin kết nối DB.
+- SQLite ở thư mục tạm của Render Free bị mất khi service restart, redeploy hoặc spin down. Production cần một database ngoài service, ví dụ PostgreSQL Aiven. Đặt `USE_MOCK_DB=false`, `DATABASE_TYPE=postgres`, `REQUIRE_PERSISTENT_DB=true`, `DATABASE_URL` và `DATABASE_SSL_CA` trong Environment của Render. `DATABASE_SSL_CA_FILE` là lựa chọn thay thế nếu CA được cung cấp dưới dạng secret file. [Lưu trữ trên Render Free](https://render.com/docs/free#local-files-lost-on-redeploy), [kết nối Aiven với Node.js](https://aiven.io/docs/products/postgresql/howto/connect-node).
+- Trước khi chuyển DB, sao lưu SQLite đang chạy và database đích; đối chiếu hoặc di chuyển tài khoản, hồ sơ và dữ liệu liên quan. Không dùng seed demo để thay thế hồ sơ người dùng. Kiểm tra Aiven đang hoạt động và chấp nhận kết nối, rồi xác minh TLS bằng CA đúng dự án. Có thể chạy `node scripts/configure-database-ca.cjs backend/aiven-ca.pem` để kiểm tra từ máy local; lệnh này không thay đổi dữ liệu khi không có `--apply`.
+- Áp dụng đủ các biến trên trước khi triển khai nhánh này. Backend sẽ báo lỗi cấu hình khi đã yêu cầu DB ngoài nhưng thiếu URL; khi `REQUIRE_PERSISTENT_DB=true`, backend từ chối SQLite demo. Không bật cờ này trên service đang thiếu thông tin DB vì service sẽ không khởi động được.
+- Sau triển khai, `/api/health` phải trả `database: postgres`. Lưu một thay đổi hồ sơ, đọc lại qua `/api/auth/me`, rồi restart backend và đọc lại lần nữa. Chỉ xác nhận chuyển DB hoàn tất khi dữ liệu vẫn còn. Bộ test có kiểm tra độc lập việc API ghi hồ sơ xuống file DB và đọc lại từ tiến trình backend mới.
+
 ## Gọi thoại và video
 
 - Mở Tin nhắn, chọn cuộc trò chuyện rồi bấm Gọi thoại/Gọi video. Hai tài khoản đăng nhập độc lập dùng cùng URL `/call/:callId` khi người nhận trả lời. Chỉ người trong cuộc trò chuyện hiện có được gọi và trao đổi tín hiệu; kiểm tra tài khoản bị khóa, chặn và máy bận ở backend.
