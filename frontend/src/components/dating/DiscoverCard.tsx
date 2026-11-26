@@ -24,7 +24,7 @@ export const DiscoverCard: React.FC<DiscoverCardProps> = ({
 }) => {
   const { t } = useTranslation();
   const age = calculateAge(user.dateOfBirth);
-  const mainPhoto = user.photos?.[0] || user.avatar;
+  const mainPhoto = user.photos?.[0] || user.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80';
 
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -200,10 +200,10 @@ export const DiscoverCard: React.FC<DiscoverCardProps> = ({
 
         {user.compatibility && (
           <div className="small mb-2" aria-label={t('discover.why_recommended')}>
-            {user.compatibility.sharedInterests.length > 0 && <div>
+            {Array.isArray(user.compatibility.sharedInterests) && user.compatibility.sharedInterests.length > 0 && <div>
               <i className="bi bi-heart me-1" />{t('discover.shared_interests', { interests: user.compatibility.sharedInterests.slice(0, 3).join(', ') })}
             </div>}
-            {user.compatibility.reasons.includes('same_relationship_goal') && <div>
+            {Array.isArray(user.compatibility.reasons) && user.compatibility.reasons.includes('same_relationship_goal') && <div>
               <i className="bi bi-bullseye me-1" />{t('discover.same_goal')}
             </div>}
           </div>

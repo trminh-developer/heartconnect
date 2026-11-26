@@ -19,7 +19,7 @@ router.get("/api/users", optionalAuth, getRecommendedUsers);
 router.get("/api/users/recommended", optionalAuth, getRecommendedUsers);
 router.get('/api/users/discover', requireAuth, getDiscoveryFeed);
 router.post('/api/users/discover/:sessionId/impressions', requireAuth, postDiscoveryImpression);
-router.get("/api/users/nearby", getNearbyUsers);
+router.get("/api/users/nearby", optionalAuth, getNearbyUsers);
 router.get("/api/users/search", searchUsers);
 router.get("/api/users/username/:username", optionalAuth, getUserByUsername);
 router.get("/api/users/:id", optionalAuth, getUserById);

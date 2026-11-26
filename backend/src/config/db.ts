@@ -2,6 +2,7 @@ import { Sequelize } from "sequelize";
 import dotenv from "dotenv";
 import path from "path";
 import os from "os";
+import fs from "fs";
 
 dotenv.config({ path: [path.resolve(__dirname, '../../.env.local'), path.resolve(__dirname, '../../.env')] });
 
@@ -39,7 +40,9 @@ if (useMockDb) {
   if (["postgres", "postgresql"].includes(process.env.DATABASE_TYPE || "") && !isPostgres) {
     throw new Error("DATABASE_TYPE=postgres requires a PostgreSQL DATABASE_URL or POSTGRES_URL.");
   }
-  const postgresCa = process.env.DATABASE_SSL_CA?.replace(/\\n/g, "\n");
+  const caFilePath = path.resolve(__dirname, "../../aiven-ca.pem");
+  const fallbackCa = fs.existsSync(caFilePath) ? fs.readFileSync(caFilePath, "utf8") : undefined;
+  const postgresCa = process.env.DATABASE_SSL_CA?.replace(/\\n/g, "\n") || fallbackCa;
   const needsSsl =
     isProduction ||
     !!postgresCa ||
@@ -66,7 +69,7 @@ if (useMockDb) {
     dialectOptions: {
       ...(needsSsl ? { ssl: {
         require: true,
-        rejectUnauthorized: isPostgres,
+        rejectUnauthorized: !!postgresCa || (isProduction && !dbUrl.includes("aivencloud")),
         ...(isPostgres && postgresCa ? { ca: postgresCa } : {}),
       } } : {}),
       ...(isPostgres ? { connectionTimeoutMillis: 15000, statement_timeout: 60000 } : {}),

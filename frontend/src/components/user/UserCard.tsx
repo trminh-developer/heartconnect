@@ -30,12 +30,17 @@ export const UserCard: React.FC<UserCardProps> = ({ user, onLike, onMessage, onC
         }
       }}>
       <div className="hc-card-body p-4 d-flex flex-column align-items-center text-center">
-        <Avatar src={user.avatar || ''} alt={(user.firstName || user.username)} size="xl" isOnline={user.isOnline} className="mb-3 shadow-sm" />
+        <Avatar src={user.avatar || (user.photos && user.photos[0]) || ''} alt={(user.firstName || user.username)} size="xl" isOnline={user.isOnline} className="mb-3 shadow-sm" />
         
         <h5 className="mb-1 fw-bold">
           {name}{typeof age === 'number' ? `, ${age}` : ''}
           <UserBadge user={user} />
         </h5>
+        {user.matchPercentage != null && (
+          <span className="badge bg-danger-subtle text-danger rounded-pill px-2 py-1 mb-2 fw-semibold" style={{ fontSize: '0.75rem' }}>
+            <i className="bi bi-heart-fill me-1"></i> {Math.round(user.matchPercentage)}% phù hợp
+          </span>
+        )}
         {user.username && <p className="text-muted small mb-2 user-card-username">@{user.username}</p>}
         
         <p className="text-muted small mb-2 d-flex align-items-center gap-1">

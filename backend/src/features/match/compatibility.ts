@@ -103,15 +103,21 @@ function accepts(viewer: DatingProfile, other: DatingProfile, age: number, dista
 }
 export function mutuallyEligible(a: DatingProfile, b: DatingProfile, now = new Date()): boolean {
   if (a.id === b.id) return false;
-  for (const profile of [a, b]) {
-    if (profile.status && profile.status !== 'ACTIVE') return false;
-    if (profile.role && profile.role !== 'USER') return false;
-    if (profile.dating_visible === false) return false;
+  if (a.status && a.status !== 'ACTIVE') return false;
+  if (b.status && b.status !== 'ACTIVE') return false;
+  if (b.role && b.role !== 'USER') return false;
+  if (b.dating_visible === false) return false;
+  const isStaff = a.role === 'ADMIN' || a.role === 'CENSOR';
+  if (!isStaff) {
+    if (a.role && a.role !== 'USER') return false;
+    if (a.dating_visible === false) return false;
   }
   const ageA = ageOn(a.date_of_birth, now), ageB = ageOn(b.date_of_birth, now);
   if (ageA === null || ageB === null || ageA < 18 || ageB < 18 || ageA > 100 || ageB > 100) return false;
   const distance = distanceKm(a, b, now);
-  return accepts(a, b, ageB, distance) && accepts(b, a, ageA, distance);
+  if (!accepts(a, b, ageB, distance)) return false;
+  if (isStaff) return true;
+  return accepts(b, a, ageA, distance);
 }
 export function activityScore(profile: DatingProfile, now = new Date()): number | null {
   const activeAt = profile.last_active ? new Date(profile.last_active).getTime() : NaN;

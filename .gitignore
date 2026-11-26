@@ -5,6 +5,7 @@ dist-test/
 .vercel
 .vs/
 *.log
+*.pem
 .env
 .env.*
 !.env.example

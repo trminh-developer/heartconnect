@@ -59,9 +59,14 @@ export const getRecommendedUsers = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getNearbyUsers = async (req: Request, res: Response) => {
+export const getNearbyUsers = async (req: AuthRequest, res: Response) => {
   try {
-    const users = await User.findAll({ where: { status: 'ACTIVE', role: 'USER' }, limit: 20, include: profileIncludes() });
+    const currentId = req.user?.id || (typeof req.query.currentUserId === 'string' ? req.query.currentUserId : undefined);
+    const where: any = { status: 'ACTIVE', role: 'USER' };
+    if (currentId) {
+      where.id = { [Op.ne]: currentId };
+    }
+    const users = await User.findAll({ where, limit: 20, include: profileIncludes() });
     return res.json(users.map(publicProfile));
   } catch (error: any) {
     console.error(error);

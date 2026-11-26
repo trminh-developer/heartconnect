@@ -29,7 +29,7 @@ const HomeView = () => {
           userService.getNearbyUsers(user?.id || '')
         ]);
         setRecommendedUsers(recUsers || []);
-        setNearbyUsers(nearUsers || []);
+        setNearbyUsers((nearUsers || []).filter(u => u.id !== user?.id));
         
         // Chỉ tải matches và chat khi đã đăng nhập
         if (user?.id) {
@@ -149,6 +149,33 @@ const HomeView = () => {
           </div>
         </div>
       </div>
+
+      {/* Những người ở gần (Nearby Users) */}
+      {nearbyUsers.length > 0 && (
+        <div className="row mb-4 slide-in-up">
+          <div className="col-12">
+            <div className="hc-card">
+              <div className="hc-card-header d-flex justify-content-between align-items-center">
+                <h5 className="mb-0">
+                  <i className="bi bi-geo-alt text-primary me-2"></i>{t('home.nearby')}
+                </h5>
+                <Link to="/map" className="text-primary text-decoration-none fw-medium">
+                  {t('nav.map') || 'Bản đồ'} <i className="bi bi-arrow-right"></i>
+                </Link>
+              </div>
+              <div className="hc-card-body">
+                <div className="row">
+                  {nearbyUsers.slice(0, 8).map(u => (
+                    <div key={u.id} className="col-md-3 col-6 mb-3">
+                      <UserCard user={u} onClick={() => handleCardClick(u)} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tương hợp mới (New Matches - Chỉ cho User) */}
       {user && (

@@ -41,15 +41,24 @@ export interface DiscoveryPage {
 
 export const getDiscoveryFeed = async (cursor?: string): Promise<DiscoveryPage> => {
   const res = await apiClient.get('/users/discover', { params: { limit: 20, ...(cursor ? { cursor } : {}) } });
-  return { ...res.data, users: (res.data.users || []).map((user: any) => ({ ...mapUser(user), discoverySessionId: res.data.sessionId })) };
+  const sessionId = res.data.sessionId || res.data.session_id || '';
+  const nextCursor = res.data.nextCursor ?? res.data.next_cursor ?? null;
+  const locationRequired = res.data.locationRequired ?? res.data.location_required ?? false;
+  return {
+    ...res.data,
+    sessionId,
+    nextCursor,
+    locationRequired,
+    users: (res.data.users || []).map((user: any) => ({ ...mapUser(user), discoverySessionId: sessionId }))
+  };
 };
 
 export const recordDiscoveryImpression = async (sessionId: string, targetId: string): Promise<void> => {
   await apiClient.post(`/users/discover/${sessionId}/impressions`, { targetId });
 };
 
-export const getNearbyUsers = async (currentUserId: string, limit = 10, maxDistance?: number): Promise<User[]> => {
-  const res = await apiClient.get('/users/nearby', { params: { limit, maxDistance } });
+export const getNearbyUsers = async (currentUserId?: string, limit = 10, maxDistance?: number): Promise<User[]> => {
+  const res = await apiClient.get('/users/nearby', { params: { limit, maxDistance, ...(currentUserId ? { currentUserId } : {}) } });
   return res.data.map ? res.data.map(mapUser) : mapUser(res.data);
 };
 

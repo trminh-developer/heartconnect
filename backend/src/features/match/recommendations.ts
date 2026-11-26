@@ -30,15 +30,19 @@ export function feedFingerprint(profile: DatingProfile) {
       p.distance_half_life, p.relationship_goal, p.accepted_goals, p.goal_required],
   })).digest('hex');
 }
-function candidateWhere(viewer: DatingProfile, skip: string[] = [], now = new Date()) {
+function candidateWhere(viewer: DatingProfile, skip: string[] = [], now = new Date(), excludeImpressions = true) {
   const id = sequelize.escape(viewer.id), timestamp = sequelize.escape(now);
+  const qi = sequelize.getQueryInterface();
+  const userCol = qi.quoteIdentifier('User') + '.' + qi.quoteIdentifier('id');
   const clauses: any[] = [];
   const activeSwipe = '(s.action <> \'pass\' OR s.expires_at IS NULL OR s.expires_at > ' + timestamp + ')';
-  clauses.push(literal('NOT EXISTS (SELECT 1 FROM user_swipes s WHERE ((s.user_id = ' + id + ' AND s.target_id = User.id) OR (s.target_id = ' + id + ' AND s.user_id = User.id AND s.action = \'pass\')) AND ' + activeSwipe + ')'));
-  clauses.push(literal('NOT EXISTS (SELECT 1 FROM user_blocks b WHERE (b.user_id = ' + id + ' AND b.target_id = User.id) OR (b.target_id = ' + id + ' AND b.user_id = User.id))'));
-  clauses.push(literal('NOT EXISTS (SELECT 1 FROM matches m WHERE (m.user1_id = ' + id + ' AND m.user2_id = User.id) OR (m.user2_id = ' + id + ' AND m.user1_id = User.id))'));
-  clauses.push(literal('NOT EXISTS (SELECT 1 FROM pair_states p WHERE p.state IN (\'unmatched\', \'blocked\') AND ((p.user_low_id = ' + id + ' AND p.user_high_id = User.id) OR (p.user_high_id = ' + id + ' AND p.user_low_id = User.id)))'));
-  clauses.push(literal('NOT EXISTS (SELECT 1 FROM discovery_impressions i WHERE i.user_id = ' + id + ' AND i.target_id = User.id AND i.shown_at > ' + sequelize.escape(new Date(now.getTime() - 86400000)) + ')'));
+  clauses.push(literal('NOT EXISTS (SELECT 1 FROM user_swipes s WHERE ((s.user_id = ' + id + ' AND s.target_id = ' + userCol + ') OR (s.target_id = ' + id + ' AND s.user_id = ' + userCol + ' AND s.action = \'pass\')) AND ' + activeSwipe + ')'));
+  clauses.push(literal('NOT EXISTS (SELECT 1 FROM user_blocks b WHERE (b.user_id = ' + id + ' AND b.target_id = ' + userCol + ') OR (b.target_id = ' + id + ' AND b.user_id = ' + userCol + '))'));
+  clauses.push(literal('NOT EXISTS (SELECT 1 FROM matches m WHERE (m.user1_id = ' + id + ' AND m.user2_id = ' + userCol + ') OR (m.user2_id = ' + id + ' AND m.user1_id = ' + userCol + '))'));
+  clauses.push(literal('NOT EXISTS (SELECT 1 FROM pair_states p WHERE p.state IN (\'unmatched\', \'blocked\') AND ((p.user_low_id = ' + id + ' AND p.user_high_id = ' + userCol + ') OR (p.user_high_id = ' + id + ' AND p.user_low_id = ' + userCol + ')))'));
+  if (excludeImpressions) {
+    clauses.push(literal('NOT EXISTS (SELECT 1 FROM discovery_impressions i WHERE i.user_id = ' + id + ' AND i.target_id = ' + userCol + ' AND i.shown_at > ' + sequelize.escape(new Date(now.getTime() - 86400000)) + ')'));
+  }
   const minAge = viewer.UserPreference?.age_min ?? 18, maxAge = viewer.UserPreference?.age_max ?? 100;
   // Broad DOB boundaries support leap dates; exact birthday checks happen in mutuallyEligible.
   const oldest = new Date(Date.UTC(now.getUTCFullYear() - maxAge - 1, now.getUTCMonth(), now.getUTCDate()));
@@ -73,16 +77,19 @@ async function loadViewer(userId: string): Promise<DatingProfile> {
   if (!user) throw datingError('User not found', 404);
   return user.toJSON() as DatingProfile;
 }
-async function retrieveRanked(viewer: DatingProfile, limit: number, now: Date) {
-  if (viewer.status !== 'ACTIVE' || viewer.dating_visible === false || ageOn(viewer.date_of_birth, now) === null) return [];
+async function retrieveRanked(viewer: DatingProfile, limit: number, now: Date, excludeImpressions = true) {
+  const isStaff = viewer.role === 'ADMIN' || viewer.role === 'CENSOR';
+  if (viewer.status !== 'ACTIVE' || (!isStaff && viewer.dating_visible === false) || ageOn(viewer.date_of_birth, now) === null) return [];
   const interestIds = (await catalogue()).filter(interest => interestSet(viewer).has(interestKey(interest.name))).map(interest => interest.id);
-  const sharedInterests = interestIds.length ? literal('EXISTS (SELECT 1 FROM user_interests ui WHERE ui.user_id = User.id AND ui.interest_id IN (' + interestIds.map(id => sequelize.escape(id)).join(',') + '))') : null;
+  const qi = sequelize.getQueryInterface();
+  const userCol = qi.quoteIdentifier('User') + '.' + qi.quoteIdentifier('id');
+  const sharedInterests = interestIds.length ? literal('EXISTS (SELECT 1 FROM user_interests ui WHERE ui.user_id = ' + userCol + ' AND ui.interest_id IN (' + interestIds.map(id => sequelize.escape(id)).join(',') + '))') : null;
   const seen = new Set<string>();
   let shortlist: RankedCandidate[] = [];
   for (let round = 0; round < 3 && seen.size < MAX_CANDIDATES; round++) {
     const sourceLimit = Math.min(Math.ceil(CANDIDATE_BATCH_SIZE / 3), Math.floor((MAX_CANDIDATES - seen.size) / 3));
     if (sourceLimit < 1) break;
-    const base = candidateWhere(viewer, [...seen], now);
+    const base = candidateWhere(viewer, [...seen], now, excludeImpressions);
     // Three bounded sources: related interests, recently active people, and newcomers.
     const sources = [
       User.findAll({ attributes: ['id'], where: sharedInterests ? { [Op.and]: [base, sharedInterests] } : base, order: [['last_active', 'DESC'], ['id', 'ASC']], limit: sourceLimit }),
@@ -101,7 +108,7 @@ async function retrieveRanked(viewer: DatingProfile, limit: number, now: Date) {
   }
   return shortlist;
 }
-async function finalize(viewer: DatingProfile, entries: { id: string; compatibility: ReturnType<typeof compatibility> }[], offset: number, limit: number) {
+async function finalize(viewer: DatingProfile, entries: { id: string; compatibility: ReturnType<typeof compatibility> }[], offset: number, limit: number, excludeImpressions = true) {
   const output: any[] = [];
   let next = offset;
   // Validate oversampled cached IDs against current preferences, blocks, matches and account visibility.
@@ -109,7 +116,7 @@ async function finalize(viewer: DatingProfile, entries: { id: string; compatibil
     const chunk = entries.slice(next, next + Math.max(limit * 3, 20));
     const users = await User.findAll({
       attributes: [...new Set([...featureAttributes, ...publicProfileAttributes])],
-      where: { [Op.and]: [candidateWhere(viewer), { id: { [Op.in]: chunk.map(entry => entry.id) } }] },
+      where: { [Op.and]: [candidateWhere(viewer, [], new Date(), excludeImpressions), { id: { [Op.in]: chunk.map(entry => entry.id) } }] },
       include: profileIncludes(),
     });
     const byId = new Map(users.map(user => [user.get('id') as string, user.toJSON() as DatingProfile]));
@@ -136,8 +143,8 @@ export async function recommendUsers(userId: string | undefined, limit: number) 
     return users.filter(user => { const age = ageOn(user.get('date_of_birth') as string); return age !== null && age >= 18 && age <= 100; }).map(publicProfile);
   }
   const viewer = await loadViewer(userId);
-  const ranked = await retrieveRanked(viewer, limit * 3, new Date());
-  return (await finalize(await loadViewer(userId), ranked.map(item => ({ id: item.profile.id, compatibility: item.compatibility })), 0, limit)).users;
+  const ranked = await retrieveRanked(viewer, limit * 3, new Date(), false);
+  return (await finalize(await loadViewer(userId), ranked.map(item => ({ id: item.profile.id, compatibility: item.compatibility })), 0, limit, false)).users;
 }
 export async function discoveryFeed(userId: string, limit: number, cursor?: string) {
   const viewer = await loadViewer(userId);
@@ -154,7 +161,10 @@ export async function discoveryFeed(userId: string, limit: number, cursor?: stri
     offset = Number(parts[2]);
     if (offset > session.entries.length) throw datingError('Cursor không hợp lệ.');
   } else {
-    const ranked = await retrieveRanked(viewer, Math.min(200, Math.max(60, limit * 3)), new Date());
+    let ranked = await retrieveRanked(viewer, Math.min(200, Math.max(60, limit * 3)), new Date(), true);
+    if (ranked.length === 0) {
+      ranked = await retrieveRanked(viewer, Math.min(200, Math.max(60, limit * 3)), new Date(), false);
+    }
     // Reject a build raced by a settings change rather than returning a mismatched cached feed.
     if (feedFingerprint(await loadViewer(userId)) !== fingerprint) throw datingError('Thiết lập vừa thay đổi.', 409, 'REFRESH_FEED');
     session = await DiscoverySession.create({
@@ -162,14 +172,21 @@ export async function discoveryFeed(userId: string, limit: number, cursor?: stri
       entries: ranked.map(item => ({ id: item.profile.id, compatibility: item.compatibility })),
     });
   }
-  const page = await finalize(await loadViewer(userId), session.entries, offset, limit);
+  const page = await finalize(await loadViewer(userId), session.entries, offset, limit, false);
   const delivered = Math.max(Number(session.delivered_count), page.next);
   await DiscoverySession.update({ delivered_count: delivered }, { where: { id: session.id, delivered_count: { [Op.lt]: delivered } } });
+  const nextCursor = page.next < session.entries.length ? session.id + ':' + page.next : null;
+  const locationRequired = !!viewer.UserPreference?.distance_required && !coordinates(viewer);
   return {
-    users: page.users, session_id: session.id,
-    next_cursor: page.next < session.entries.length ? session.id + ':' + page.next : null,
-    algorithm_version: ALGORITHM_VERSION, expires_at: session.expires_at,
-    location_required: !!viewer.UserPreference?.distance_required && !coordinates(viewer),
+    users: page.users,
+    session_id: session.id,
+    sessionId: session.id,
+    next_cursor: nextCursor,
+    nextCursor,
+    algorithm_version: ALGORITHM_VERSION,
+    expires_at: session.expires_at,
+    location_required: locationRequired,
+    locationRequired,
   };
 }
 export async function recordImpression(userId: string, sessionId: string, targetId: unknown) {

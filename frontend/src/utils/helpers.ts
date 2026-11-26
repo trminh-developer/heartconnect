@@ -126,7 +126,16 @@ export const mapUser = (u: any): any => {
     relationshipGoal: goal(u.relationship_goal || u.relationshipGoal),
     locationUpdatedAt: u.location_updated_at ?? u.locationUpdatedAt,
     datingVisible: u.dating_visible ?? u.datingVisible ?? true,
-    matchPercentage: u.match_percentage ?? u.matchPercentage,
+    matchPercentage: u.match_percentage ?? u.matchPercentage ?? u.compatibility?.score ?? null,
+    compatibility: u.compatibility ? {
+      score: u.compatibility.score ?? null,
+      coldStart: u.compatibility.coldStart ?? u.compatibility.cold_start ?? false,
+      reasons: Array.isArray(u.compatibility.reasons) ? u.compatibility.reasons : [],
+      sharedInterests: Array.isArray(u.compatibility.sharedInterests)
+        ? u.compatibility.sharedInterests
+        : (Array.isArray(u.compatibility.shared_interests) ? u.compatibility.shared_interests : []),
+      distanceKm: u.compatibility.distanceKm ?? u.compatibility.distance_km ?? null
+    } : undefined,
     isVerified: u.is_verified !== undefined ? u.is_verified : u.isVerified,
     isOnline: u.is_online !== undefined ? u.is_online : u.isOnline,
     isPremium: u.is_premium ?? u.isPremium ?? false,
