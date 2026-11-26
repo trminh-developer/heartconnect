@@ -49,24 +49,31 @@ export const getRecommendedUsers = async (req: AuthRequest, res: Response) => {
     if (!Number.isInteger(requested) || requested < 1 || requested > 50) {
       return res.status(400).json({ error: 'Limit must be an integer between 1 and 50' });
     }
-    const users = await recommendUsers(req.user?.id, requested);
+    const currentId = req.user?.id || (typeof req.query.currentUserId === 'string' ? req.query.currentUserId : undefined);
+    const users = await recommendUsers(currentId, requested);
     return res.json(users);
   } catch (error: any) {
-    console.error(error);
-    return res
-      .status(500)
-      .json({ error: error.message || "Internal server error" });
+    console.error('getRecommendedUsers error, fallback to public:', error);
+    try {
+      const fallback = await recommendUsers(undefined, 20);
+      return res.json(fallback);
+    } catch {
+      return res.status(500).json({ error: error.message || "Internal server error" });
+    }
   }
 };
 
 export const getNearbyUsers = async (req: AuthRequest, res: Response) => {
   try {
     const currentId = req.user?.id || (typeof req.query.currentUserId === 'string' ? req.query.currentUserId : undefined);
-    const where: any = { status: 'ACTIVE', role: 'USER' };
+    const where: any = { status: { [Op.ne]: 'BANNED' }, dating_visible: { [Op.ne]: false } };
     if (currentId) {
       where.id = { [Op.ne]: currentId };
     }
-    const users = await User.findAll({ where, limit: 20, include: profileIncludes() });
+    let users = await User.findAll({ where, limit: 20, include: profileIncludes() });
+    if (users.length === 0) {
+      users = await User.findAll({ where: { status: { [Op.ne]: 'BANNED' } }, limit: 20, include: profileIncludes() });
+    }
     return res.json(users.map(publicProfile));
   } catch (error: any) {
     console.error(error);

@@ -159,7 +159,7 @@ const DiscoverView = () => {
             title={t(loadError ? 'discover.load_error' : 'discover.no_more_users')}
             description={t(loadError ? 'discover.load_error_desc' : locationRequired ? 'discover.location_required' : 'discover.no_more_users_desc')}
           />
-          <Button onClick={() => hasMore ? void loadMore() : refresh()}>{t('discover.refresh')}</Button>
+          <Button onClick={() => { setCurrentIndex(0); if (hasMore) void loadMore(); else refresh(); }}>{t('discover.refresh')}</Button>
         </div>
       )}
 

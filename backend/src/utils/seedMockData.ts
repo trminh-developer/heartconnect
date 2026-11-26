@@ -23,7 +23,7 @@ import {
 export async function seedMockData(force: boolean = false) {
   try {
     const userCount = await User.count();
-    if (userCount > 0 && !force) {
+    if (userCount >= 20 && !force) {
       console.log(
         `[MockDB] Database already has ${userCount} users. Skipping seeder.`,
       );

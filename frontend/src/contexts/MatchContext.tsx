@@ -65,10 +65,10 @@ export const MatchProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     dispatch({ type: 'LOAD_MATCHES_START' });
     try {
       const matches = await matchService.getMatches(currentUserId);
-      if (getCurrentUserId() === currentUserId) dispatch({ type: 'LOAD_MATCHES_SUCCESS', payload: matches });
+      dispatch({ type: 'LOAD_MATCHES_SUCCESS', payload: matches });
     } catch (error) {
       console.error('Error loading matches:', error);
-      if (getCurrentUserId() === currentUserId) dispatch({ type: 'LOAD_MATCHES_SUCCESS', payload: [] });
+      dispatch({ type: 'LOAD_MATCHES_SUCCESS', payload: [] });
     }
   }, [user?.id]);
 

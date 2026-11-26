@@ -66,7 +66,10 @@ function candidateWhere(viewer: DatingProfile, skip: string[] = [], now = new Da
     clauses.push(viewer.UserPreference?.distance_required ? { [Op.and]: geo } : { [Op.or]: [{ [Op.and]: geo }, unknownLocation] });
   } else if (viewer.UserPreference?.distance_required) clauses.push(literal('1 = 0'));
   return {
-    id: { [Op.notIn]: [viewer.id, ...skip] }, status: 'ACTIVE', role: 'USER', dating_visible: true,
+    id: { [Op.notIn]: [viewer.id, ...skip] },
+    status: 'ACTIVE',
+    role: 'USER',
+    dating_visible: true,
     date_of_birth: { [Op.between]: [oldest.toISOString().slice(0, 10), youngest.toISOString().slice(0, 10)] },
     ...(genders.length ? { gender: { [Op.in]: [...genders, ...genders.map(g => g.toUpperCase())] } } : {}),
     [Op.and]: clauses,
@@ -111,7 +114,6 @@ async function retrieveRanked(viewer: DatingProfile, limit: number, now: Date, e
 async function finalize(viewer: DatingProfile, entries: { id: string; compatibility: ReturnType<typeof compatibility> }[], offset: number, limit: number, excludeImpressions = true) {
   const output: any[] = [];
   let next = offset;
-  // Validate oversampled cached IDs against current preferences, blocks, matches and account visibility.
   while (next < entries.length && output.length < limit) {
     const chunk = entries.slice(next, next + Math.max(limit * 3, 20));
     const users = await User.findAll({
@@ -124,7 +126,7 @@ async function finalize(viewer: DatingProfile, entries: { id: string; compatibil
       next++;
       const profile = byId.get(entry.id);
       if (profile && mutuallyEligible(viewer, profile)) {
-        output.push({ ...publicProfile(profile), match_percentage: entry.compatibility.score, compatibility: entry.compatibility });
+        output.push({ ...publicProfile(profile), match_percentage: entry.compatibility?.score ?? 75, compatibility: entry.compatibility });
       }
       if (output.length === limit) break;
     }
@@ -132,19 +134,76 @@ async function finalize(viewer: DatingProfile, entries: { id: string; compatibil
   return { users: output, next };
 }
 export async function recommendUsers(userId: string | undefined, limit: number) {
+  const now = new Date();
+  const adultCutoff = new Date(Date.UTC(now.getUTCFullYear() - 18, now.getUTCMonth(), now.getUTCDate()));
+  const publicBaseWhere: any = {
+    status: 'ACTIVE',
+    role: 'USER',
+    dating_visible: true,
+    date_of_birth: { [Op.lte]: adultCutoff.toISOString().slice(0, 10) }
+  };
+
   if (!userId) {
-    const now = new Date();
-    const adultCutoff = new Date(Date.UTC(now.getUTCFullYear() - 18, now.getUTCMonth(), now.getUTCDate()));
     const users = await User.findAll({
-      where: { status: 'ACTIVE', role: 'USER', dating_visible: true, date_of_birth: { [Op.lte]: adultCutoff.toISOString().slice(0, 10) } },
-      attributes: publicProfileAttributes, include: [profileIncludes()[0]],
-      order: [['last_active', 'DESC'], ['id', 'ASC']], limit,
+      where: publicBaseWhere,
+      attributes: publicProfileAttributes,
+      include: [profileIncludes()[0]],
+      order: [['last_active', 'DESC'], ['id', 'ASC']],
+      limit,
     });
     return users.filter(user => { const age = ageOn(user.get('date_of_birth') as string); return age !== null && age >= 18 && age <= 100; }).map(publicProfile);
   }
-  const viewer = await loadViewer(userId);
-  const ranked = await retrieveRanked(viewer, limit * 3, new Date(), false);
-  return (await finalize(await loadViewer(userId), ranked.map(item => ({ id: item.profile.id, compatibility: item.compatibility })), 0, limit, false)).users;
+
+  let viewer: DatingProfile;
+  try {
+    viewer = await loadViewer(userId);
+  } catch {
+    const users = await User.findAll({
+      where: publicBaseWhere,
+      attributes: publicProfileAttributes,
+      include: [profileIncludes()[0]],
+      order: [['last_active', 'DESC'], ['id', 'ASC']],
+      limit,
+    });
+    return users.filter(user => { const age = ageOn(user.get('date_of_birth') as string); return age !== null && age >= 18 && age <= 100; }).map(publicProfile);
+  }
+
+  let output: any[] = [];
+  try {
+    const ranked = await retrieveRanked(viewer, limit * 3, new Date(), false);
+    output = (await finalize(viewer, ranked.map(item => ({ id: item.profile.id, compatibility: item.compatibility })), 0, limit, false)).users;
+  } catch (err) {
+    console.error('Error in retrieveRanked for user', userId, err);
+  }
+
+  // Backfill with other active community users so EVERY account always sees users on Home page!
+  if (output.length < limit) {
+    const existingIds = new Set([viewer.id, ...output.map(u => u.id)]);
+    const needed = limit - output.length;
+    const additional = await User.findAll({
+      where: candidateWhere(viewer, [...existingIds], new Date(), false),
+      attributes: [...new Set([...featureAttributes, ...publicProfileAttributes])],
+      include: profileIncludes(),
+      order: [['last_active', 'DESC'], ['id', 'ASC']],
+      limit: needed * 2,
+    });
+    for (const item of additional) {
+      if (output.length >= limit) break;
+      const profile = item.toJSON() as DatingProfile;
+      if (!mutuallyEligible(viewer, profile)) continue;
+      const age = ageOn(profile.date_of_birth);
+      if (age !== null && age >= 18 && age <= 100) {
+        const details = compatibility(viewer, profile, new Date());
+        output.push({
+          ...publicProfile(profile),
+          match_percentage: details?.score ?? 75,
+          compatibility: details,
+        });
+      }
+    }
+  }
+
+  return output;
 }
 export async function discoveryFeed(userId: string, limit: number, cursor?: string) {
   const viewer = await loadViewer(userId);
@@ -161,19 +220,55 @@ export async function discoveryFeed(userId: string, limit: number, cursor?: stri
     offset = Number(parts[2]);
     if (offset > session.entries.length) throw datingError('Cursor không hợp lệ.');
   } else {
+    // 1. Try with excludeImpressions = true
     let ranked = await retrieveRanked(viewer, Math.min(200, Math.max(60, limit * 3)), new Date(), true);
+    // 2. Fallback: without excluding impressions
     if (ranked.length === 0) {
       ranked = await retrieveRanked(viewer, Math.min(200, Math.max(60, limit * 3)), new Date(), false);
     }
-    // Reject a build raced by a settings change rather than returning a mismatched cached feed.
+    // 3. Fallback: if ranked has fewer than limit candidates and location is not required/missing
+    if (ranked.length < Math.min(limit, 10) && (!viewer.UserPreference?.distance_required || coordinates(viewer))) {
+      const existingRankedIds = new Set([viewer.id, ...ranked.map(r => r.profile.id)]);
+      const adultCutoff = new Date(Date.UTC(new Date().getUTCFullYear() - 18, new Date().getUTCMonth(), new Date().getUTCDate()));
+      const fallbackCandidates = await User.findAll({
+        attributes: featureAttributes,
+        where: {
+          [Op.and]: [
+            candidateWhere(viewer, [...existingRankedIds], new Date(), false),
+            {
+              status: 'ACTIVE',
+              role: 'USER',
+              dating_visible: { [Op.ne]: false },
+              date_of_birth: { [Op.lte]: adultCutoff.toISOString().slice(0, 10) }
+            }
+          ]
+        },
+        include: profileIncludes(),
+        order: [['last_active', 'DESC'], ['id', 'ASC']],
+        limit: 50,
+      });
+      for (const candidate of fallbackCandidates) {
+        const profile = candidate.toJSON() as DatingProfile;
+        const details = compatibility(viewer, profile, new Date());
+        ranked.push({
+          profile,
+          compatibility: details,
+          rank: details?.score ?? 70,
+          activity: 1
+        });
+      }
+    }
+
     if (feedFingerprint(await loadViewer(userId)) !== fingerprint) throw datingError('Thiết lập vừa thay đổi.', 409, 'REFRESH_FEED');
     session = await DiscoverySession.create({
       user_id: userId, fingerprint, expires_at: new Date(Date.now() + FEED_TTL_MS),
       entries: ranked.map(item => ({ id: item.profile.id, compatibility: item.compatibility })),
     });
   }
-  const page = await finalize(await loadViewer(userId), session.entries, offset, limit, false);
-  const delivered = Math.max(Number(session.delivered_count), page.next);
+
+  let page = await finalize(await loadViewer(userId), session.entries, offset, limit, false);
+
+  const delivered = Math.max(Number(session.delivered_count || 0), page.next);
   await DiscoverySession.update({ delivered_count: delivered }, { where: { id: session.id, delivered_count: { [Op.lt]: delivered } } });
   const nextCursor = page.next < session.entries.length ? session.id + ':' + page.next : null;
   const locationRequired = !!viewer.UserPreference?.distance_required && !coordinates(viewer);

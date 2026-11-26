@@ -19,6 +19,11 @@ export async function ensureUserColumns() {
   for (const [name, type] of Object.entries(additions)) {
     if (!columns[name]) await query.addColumn('users', name, { type, allowNull: name !== 'dating_visible', ...(name === 'dating_visible' ? { defaultValue: true } : {}) });
   }
+  try {
+    await sequelize.query("UPDATE users SET dating_visible = 1 WHERE dating_visible IS NULL");
+  } catch {
+    // Ignore dialect errors on non-existent column
+  }
   if (!tables.includes('user_preferences')) return;
   const preferences = await query.describeTable('user_preferences');
   const preferenceAdditions = {

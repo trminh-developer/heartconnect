@@ -30,13 +30,39 @@ export function useDiscoveryFeed(user?: User | null) {
     setLocationRequired(false);
     const load = async () => {
       try {
-        const page = user?.id ? await userService.getDiscoveryFeed() :
-          { users: await userService.getRecommendedUsers('', 20), nextCursor: null, locationRequired: false };
+        let pageUsers: User[] = [];
+        let nextCur: string | null = null;
+        let locReq = false;
+
+        if (user?.id) {
+          try {
+            const page = await userService.getDiscoveryFeed();
+            pageUsers = page.users || [];
+            nextCur = page.nextCursor;
+            locReq = page.locationRequired;
+          } catch (e) {
+            console.warn('getDiscoveryFeed failed, trying recommendedUsers fallback:', e);
+          }
+        }
+
+        if (pageUsers.length === 0) {
+          try {
+            pageUsers = await userService.getRecommendedUsers(user?.id || '', 20);
+          } catch (e) {
+            console.warn('getRecommendedUsers fallback failed, trying nearbyUsers:', e);
+            try {
+              pageUsers = await userService.getNearbyUsers(user?.id || '', 20);
+            } catch {
+              pageUsers = [];
+            }
+          }
+        }
+
         if (generation.current !== current) return;
-        setUsers(page.users);
-        cursor.current = page.nextCursor;
-        setHasMore(!!page.nextCursor);
-        setLocationRequired(page.locationRequired);
+        setUsers(pageUsers);
+        cursor.current = nextCur;
+        setHasMore(!!nextCur);
+        setLocationRequired(locReq);
       } catch {
         if (generation.current === current) setLoadError(true);
       } finally {

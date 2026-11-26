@@ -28,8 +28,10 @@ const HomeView = () => {
           userService.getRecommendedUsers(user?.id || ''),
           userService.getNearbyUsers(user?.id || '')
         ]);
-        setRecommendedUsers(recUsers || []);
-        setNearbyUsers((nearUsers || []).filter(u => u.id !== user?.id));
+        const rec = recUsers || [];
+        setRecommendedUsers(rec);
+        const filteredNear = (nearUsers || []).filter(u => u.id !== user?.id);
+        setNearbyUsers(filteredNear.length > 0 ? filteredNear : rec.filter(u => u.id !== user?.id));
         
         // Chỉ tải matches và chat khi đã đăng nhập
         if (user?.id) {
@@ -46,7 +48,7 @@ const HomeView = () => {
     loadData();
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (isLoading || (user && (matchesLoading || chatLoading))) {
+  if (isLoading) {
     return <Loading text={t('common.loading')} />;
   }
 
