@@ -1,6 +1,7 @@
 ﻿import React, { createContext, useReducer, useEffect, ReactNode } from 'react';
 import { User, UserProfileUpdate } from '../models';
 import { authService } from '../services';
+import { useRef } from 'react';
 
 interface AuthState {
   user: User | null;
@@ -65,15 +66,19 @@ const SESSION_KEY = 'hc_session_uid';
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
+  const authRevision = useRef(0);
 
-  // Khi mở app: kiểm tra session → fetch data MỚI NHẤT từ Supabase
+  // A late session read must not overwrite a profile that was just saved.
   useEffect(() => {
+    let cancelled = false;
+    const revision = authRevision.current;
+    const isCurrent = () => !cancelled && authRevision.current === revision;
     const initAuth = async () => {
       const cachedUser = authService.getCurrentUser();
       const userId = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
 
       // Render ngay lap tuc neu da co thong tin user (Zero-delay render)
-      if (cachedUser && userId) {
+      if (cachedUser && cachedUser.id === userId) {
         dispatch({ type: 'INIT_FINISH', payload: cachedUser });
       } else {
         dispatch({ type: 'INIT_START' });
@@ -81,6 +86,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (userId) {
         try {
           const freshUser = await authService.refreshUser(userId);
+          if (!isCurrent()) return;
           if (freshUser) {
             authService.setCurrentUser(freshUser);
             dispatch({ type: 'INIT_FINISH', payload: freshUser });
@@ -91,6 +97,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             dispatch({ type: 'INIT_FINISH' });
           }
         } catch (err) {
+          if (!isCurrent()) return;
           console.error('Lỗi kết nối server:', err);
           authService.setCurrentUser(null);
           dispatch({ type: 'INIT_FINISH' });
@@ -101,6 +108,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     };
     initAuth();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -120,6 +128,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [state.user]);
 
   const login = async (email: string, password: string, rememberMe: boolean = false) => {
+      authRevision.current++;
       dispatch({ type: 'LOGIN_START' });
       try {
         const user = await authService.login(email, password);
@@ -139,6 +148,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const register = async (data: any) => {
+    authRevision.current++;
     dispatch({ type: 'LOGIN_START' });
     try {
       const user = await authService.register(data);
@@ -153,6 +163,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = async () => {
+    authRevision.current++;
     await authService.logout();
     localStorage.removeItem(SESSION_KEY);
     sessionStorage.removeItem(SESSION_KEY);
@@ -169,9 +180,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     dispatch({ type: 'LOGOUT' });
   };
 
-  // Cập nhật: ghi lên Supabase TRƯỚC → sau đó mới cập nhật UI
+  // Update the cache after the API has committed the profile transaction.
   const updateUser = async (changes: UserProfileUpdate) => {
     if (!state.user) throw new Error('Vui lòng đăng nhập để cập nhật thông tin.');
+    authRevision.current++;
     try {
       const savedUser = await authService.updateUserInList(state.user.id, changes);
       authService.setCurrentUser(savedUser);
@@ -185,7 +197,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const refreshUser = async () => {
     if (!state.user) return;
+    const revision = authRevision.current;
     const freshUser = await authService.refreshUser(state.user.id);
+    if (authRevision.current !== revision) return;
     if (!freshUser) throw new Error('Không thể tải lại thông tin tài khoản.');
     authService.setCurrentUser(freshUser);
     dispatch({ type: 'UPDATE_USER', payload: freshUser });

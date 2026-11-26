@@ -66,6 +66,14 @@ test('search matches Vietnamese names across fields and treats SQL wildcard char
   assert.deepEqual(await search({ q: "' OR 1=1 --" }), []);
 });
 
+test('Vietnamese names match without accents even when the username is unrelated to the name', async () => {
+  const person = await make('account-729', { first_name: 'Đặng', last_name: 'Thùy Linh'.normalize('NFD') });
+  await make('other-account', { first_name: 'An', last_name: 'Trần' });
+  for (const q of ['dang thuy linh', 'ĐẶNG THÙY LINH', 'linh dang', '@ACCOUNT-729']) {
+    assert.deepEqual((await search({ q })).map(user => user.id), [person.get('id')], q);
+  }
+});
+
 test('exact age filters include birthdays today and exclude people just outside the range', async () => {
   const today = new Date();
   const date = (age: number, days: number) => {

@@ -16,10 +16,10 @@ const SearchView = () => {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get('q') ?? '';
-  const gender = searchParams.get('gender') ?? 'all';
+  const gender = (searchParams.get('gender') ?? 'all').trim().toLowerCase();
   const ageMin = searchParams.get('ageMin') ?? '';
   const ageMax = searchParams.get('ageMax') ?? '';
-  const onlineStatus = searchParams.get('onlineStatus') ?? 'all';
+  const onlineStatus = (searchParams.get('onlineStatus') ?? 'all').trim().toLowerCase();
   const requestedPage = Number(searchParams.get('page') ?? 1);
   const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 && requestedPage <= 40000 ? requestedPage : 1;
   const validAge = (value: string) => value === '' || (/^\d+$/.test(value) && Number(value) >= 18 && Number(value) <= 100);

@@ -24,7 +24,10 @@ export function birthdayCutoff(years: number, today = new Date()): string {
   return new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10);
 }
 
-const normalize = (value: string) => value.normalize('NFC').toLocaleLowerCase('vi');
+export const normalizeSearchText = (value: string) => value.normalize('NFD').toLocaleLowerCase('vi')
+  .replace(/\p{M}/gu, '').replace(/đ/g, 'd');
+const accentedLetters = 'àáảãạăằắẳẵặâầấẩẫậđèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵ';
+const plainLetters = [...accentedLetters].map(normalizeSearchText).join('');
 const searchFields = ['username', 'first_name', 'last_name'];
 
 export async function findSearchUsers(query: unknown) {
@@ -42,23 +45,24 @@ export async function findSearchUsers(query: unknown) {
   if (onlineStatus === 'offline') clauses.push({ [Op.or]: [{ is_online: false }, { is_online: null }] });
 
   const dialect = User.sequelize!.getDialect();
-  const tokens = normalize(q.replace(/^@(?=\S)/, '')).split(/\s+/).filter(Boolean);
-  if (tokens.length && dialect !== 'sqlite') {
-    // Substring functions treat %, _ and backslashes as literal search text.
-    const contains = dialect === 'postgres' ? 'STRPOS' : 'INSTR';
+  const tokens = normalizeSearchText(q.replace(/^@(?=\S)/, '')).split(/\s+/).filter(Boolean);
+  if (tokens.length && dialect === 'postgres') {
+    // Strip Vietnamese accents and combining marks without a database extension;
+    // STRPOS still treats %, _ and backslashes as literal search text.
     clauses.push(...tokens.map(token => ({ [Op.or]: searchFields.map(field =>
-      where(fn(contains, fn('LOWER', col(`User.${field}`)), token), { [Op.gt]: 0 }),
+      where(fn('STRPOS', fn('REGEXP_REPLACE', fn('TRANSLATE', fn('LOWER', col(`User.${field}`)),
+        accentedLetters, plainLetters), '[\u0300-\u036f]', '', 'g'), token), { [Op.gt]: 0 }),
     ) })));
   }
   const filters: WhereOptions = { status: 'ACTIVE', role: 'USER', [Op.and]: clauses };
   const order: [string, 'ASC'][] = [['username', 'ASC'], ['id', 'ASC']];
 
-  if (tokens.length && dialect === 'sqlite') {
-    // SQLite LOWER only folds ASCII. Match lightweight rows with Unicode support
-    // before paginating, then load full profiles for the requested page only.
+  if (tokens.length && dialect !== 'postgres') {
+    // Match lightweight rows with Unicode support before paginating in dialects
+    // without the PostgreSQL folding functions. Load full profiles for one page.
     const candidates = await User.findAll({ where: filters, attributes: ['id', ...searchFields], order });
     const ids = candidates.filter(user => {
-      const fields = searchFields.map(field => normalize(String(user.get(field) ?? '')));
+      const fields = searchFields.map(field => normalizeSearchText(String(user.get(field) ?? '')));
       return tokens.every(token => fields.some(field => field.includes(token)));
     }).slice(offset, offset + limit).map(user => user.get('id') as string);
     if (!ids.length) return [];

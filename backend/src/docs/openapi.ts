@@ -111,7 +111,7 @@ operation('get', '/users/search', 'Tìm hồ sơ theo từ khóa và bộ lọc'
   tag: 'Users', auth: 'public', result: profileList, errors: [400],
   description: 'Kết hợp các bộ lọc trước khi phân trang. Kết quả được sắp xếp ổn định theo username và ID. Bỏ qua bộ lọc tuổi để tìm cả hồ sơ chưa có ngày sinh.',
   parameters: [
-    query('q', { type: 'string', maxLength: 150 }, 'Tìm theo username (có thể bắt đầu bằng @) hoặc họ tên, không phân biệt hoa thường.'),
+    query('q', { type: 'string', maxLength: 150 }, 'Tìm theo username (có thể bắt đầu bằng @) hoặc họ tên; không phân biệt hoa thường và dấu tiếng Việt.'),
     query('gender', { ...enumeration('all', 'male', 'female', 'other'), default: 'all' }),
     query('ageMin', integer(18, 100), 'Tuổi tối thiểu (tính cả tuổi này), không lớn hơn ageMax.'),
     query('ageMax', integer(18, 100), 'Tuổi tối đa (tính cả tuổi này).'),
